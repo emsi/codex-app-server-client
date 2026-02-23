@@ -14,7 +14,9 @@ Current scope is intentionally small:
 uv sync
 ```
 
-## Basic usage (stdio)
+## Basic usage
+
+### Stdio
 
 ```python
 import asyncio
@@ -40,7 +42,7 @@ You can override via:
 - `connect_stdio(command=[...])`
 - environment variable: `CODEX_APP_SERVER_CMD`
 
-## Basic usage (websocket)
+### Websocket
 
 ```python
 import asyncio
@@ -63,7 +65,81 @@ Websocket defaults:
 - URL: `CODEX_APP_SERVER_WS_URL` or `ws://127.0.0.1:8765`
 - Bearer token: `CODEX_APP_SERVER_TOKEN` (optional)
 
-## Notes
+## Example clients
+
+More complete examples are included under `examples/`.
+
+### Stdio example (multi-turn, one thread)
+
+```bash
+uv run python examples/chat_session_stdio.py
+```
+
+Custom command and prompts:
+
+```bash
+uv run python examples/chat_session_stdio.py \
+  --cmd "codex app-server" \
+  --prompt "First prompt" \
+  --prompt "Second prompt"
+```
+
+### Websocket example (multi-turn, one thread)
+
+```bash
+uv run python examples/chat_session_websocket.py
+```
+
+With explicit endpoint/token:
+
+```bash
+uv run python examples/chat_session_websocket.py \
+  --url ws://127.0.0.1:8765 \
+  --token "$CODEX_APP_SERVER_TOKEN"
+```
+
+Or via environment:
+
+```bash
+export CODEX_APP_SERVER_WS_URL=ws://127.0.0.1:8765
+export CODEX_APP_SERVER_TOKEN=your-token
+uv run python examples/chat_session_websocket.py
+```
+
+## API reference (quick)
+
+### `CodexClient` (`src/codex_app_server_client/client.py`)
+
+- `connect_stdio(...)`: create + connect client over subprocess stdio.
+- `connect_websocket(...)`: create + connect client over websocket.
+- `start()`: connect transport and start receive loop.
+- `initialize(params=None, timeout=None)`: perform JSON-RPC initialize handshake.
+- `request(method, params=None, timeout=None)`: low-level JSON-RPC request helper.
+- `chat_once(text, thread_id=None, user=None, metadata=None, timeout=None)`: send one user message and wait for completed turn.
+- `interrupt_turn(turn_id, timeout=None)`: send turn interruption request.
+- `close()`: cancel receive loop and close transport.
+
+### `Transport` and implementations (`src/codex_app_server_client/transport.py`)
+
+- `Transport.connect/send/recv/close`: abstract interface.
+- `StdioTransport`: line-delimited JSON over subprocess stdin/stdout.
+- `WebSocketTransport`: JSON messages over websocket frames.
+
+### Data models (`src/codex_app_server_client/models.py`)
+
+- `InitializeResult`: parsed initialize response (`protocol_version`, `server_info`, `capabilities`, `raw`).
+- `ChatResult`: buffered turn output (`thread_id`, `turn_id`, `final_text`, `raw_events`).
+
+### Exceptions (`src/codex_app_server_client/errors.py`)
+
+- `CodexError`: base exception.
+- `CodexTransportError`: transport/connectivity problems.
+- `CodexTimeoutError`: request or turn timeout.
+- `CodexProtocolError`: protocol/JSON-RPC error (includes optional `code` and `data`).
+
+## Behavior notes
 
 - This version does not expose a streaming event API.
 - `chat_once` buffers notifications and returns final assistant text on turn completion.
+- The client uses modern thread/turn methods (`thread/start`, `thread/resume`, `turn/start`, `turn/interrupt`).
+- `initialize` currently sends `protocolVersion: "1"` as handshake metadata.

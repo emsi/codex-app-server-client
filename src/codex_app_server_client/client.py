@@ -26,6 +26,12 @@ from .transport import StdioTransport, Transport, WebSocketTransport
 
 
 class CodexClient:
+    """High-level async client for Codex app-server.
+
+    The client currently exposes a buffered chat API (`chat_once`) that waits
+    for turn completion and returns the final text plus collected raw events.
+    """
+
     def __init__(
         self,
         transport: Transport,
@@ -34,6 +40,14 @@ class CodexClient:
         turn_timeout: float = 180.0,
         strict: bool = False,
     ) -> None:
+        """Create a client bound to a transport.
+
+        Args:
+            transport: Connected or connectable transport instance.
+            request_timeout: Default timeout for request/response calls.
+            turn_timeout: Default timeout while waiting for turn completion.
+            strict: If True, fail on certain protocol ambiguities.
+        """
         self._transport = transport
         self._request_timeout = request_timeout
         self._turn_timeout = turn_timeout
@@ -59,6 +73,17 @@ class CodexClient:
         turn_timeout: float = 180.0,
         strict: bool = False,
     ) -> CodexClient:
+        """Create and connect a client over stdio transport.
+
+        Args:
+            command: Command argv for the app-server process.
+            cwd: Optional process working directory.
+            env: Optional process environment overrides.
+            connect_timeout: Timeout for process startup.
+            request_timeout: Default request timeout.
+            turn_timeout: Default turn completion timeout.
+            strict: Enable strict behavior for ambiguous protocol events.
+        """
         resolved_command = list(command) if command is not None else _default_stdio_command()
         transport = StdioTransport(
             resolved_command,
@@ -87,6 +112,17 @@ class CodexClient:
         turn_timeout: float = 180.0,
         strict: bool = False,
     ) -> CodexClient:
+        """Create and connect a client over websocket transport.
+
+        Args:
+            url: Websocket endpoint URL. Defaults to env or localhost URL.
+            token: Optional bearer token. Defaults to env variable.
+            headers: Additional websocket request headers.
+            connect_timeout: Timeout for websocket connection.
+            request_timeout: Default request timeout.
+            turn_timeout: Default turn completion timeout.
+            strict: Enable strict behavior for ambiguous protocol events.
+        """
         resolved_url = url or os.getenv("CODEX_APP_SERVER_WS_URL") or "ws://127.0.0.1:8765"
         resolved_token = token or os.getenv("CODEX_APP_SERVER_TOKEN")
         resolved_headers = dict(headers) if headers is not None else {}
@@ -108,17 +144,21 @@ class CodexClient:
         return client
 
     async def start(self) -> CodexClient:
+        """Connect transport and start background receive loop."""
         await self._transport.connect()
         self._start_receiver()
         return self
 
     async def __aenter__(self) -> CodexClient:
+        """Support `async with CodexClient(...)` usage."""
         return await self.start()
 
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        """Close client on context-manager exit."""
         await self.close()
 
     async def close(self) -> None:
+        """Stop receive loop, fail pending requests, and close transport."""
         if self._closed:
             return
         self._closed = True
@@ -142,6 +182,15 @@ class CodexClient:
         *,
         timeout: float | None = None,
     ) -> InitializeResult:
+        """Run `initialize` handshake and cache initialization state.
+
+        Args:
+            params: Optional initialize params. Uses default payload if omitted.
+            timeout: Optional timeout override for this request.
+
+        Returns:
+            Parsed initialize result object.
+        """
         payload = dict(params) if params is not None else _default_initialize_params()
         result = await self.request(INITIALIZE_METHOD, payload, timeout=timeout)
         result_dict = result if isinstance(result, dict) else {"value": result}
@@ -163,6 +212,18 @@ class CodexClient:
         *,
         timeout: float | None = None,
     ) -> Any:
+        """Send a JSON-RPC request and await response result.
+
+        Args:
+            method: JSON-RPC method name.
+            params: Optional request params payload.
+            timeout: Optional timeout override.
+
+        Raises:
+            CodexTransportError: if client is closed or transport fails.
+            CodexTimeoutError: if response does not arrive in time.
+            CodexProtocolError: if server returns JSON-RPC error.
+        """
         if self._closed:
             raise CodexTransportError("client is closed")
 
@@ -207,6 +268,18 @@ class CodexClient:
         metadata: Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> ChatResult:
+        """Send one user message and wait for the turn's final assistant output.
+
+        Args:
+            text: User text prompt.
+            thread_id: Existing thread id to continue. If omitted, a new thread is started.
+            user: Optional user identifier forwarded to server.
+            metadata: Optional metadata map sent with thread/turn requests.
+            timeout: Optional turn-completion timeout override.
+
+        Returns:
+            Buffered chat result containing final text and collected events.
+        """
         if not self._initialized:
             await self.initialize()
 
@@ -254,6 +327,7 @@ class CodexClient:
         )
 
     async def interrupt_turn(self, turn_id: str, *, timeout: float | None = None) -> None:
+        """Send best-effort `turn/interrupt` for a running turn."""
         await self.request(
             TURN_INTERRUPT_METHOD,
             {"turnId": turn_id},
@@ -261,11 +335,13 @@ class CodexClient:
         )
 
     def _start_receiver(self) -> None:
+        """Start background receive loop exactly once."""
         if self._receiver_task is not None:
             return
         self._receiver_task = asyncio.create_task(self._receiver_loop())
 
     async def _receiver_loop(self) -> None:
+        """Route incoming transport messages to request futures or notification queue."""
         try:
             while not self._closed:
                 payload = await self._transport.recv()
@@ -318,6 +394,7 @@ class CodexClient:
         turn_id: str | None,
         timeout: float,
     ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Collect notifications until turn completion (or failure/timeout)."""
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout
         raw_events: list[dict[str, Any]] = []
@@ -360,6 +437,7 @@ class CodexClient:
 
 
 def _default_stdio_command() -> list[str]:
+    """Return default app-server command for stdio mode."""
     from_env = os.getenv("CODEX_APP_SERVER_CMD")
     if from_env:
         return shlex.split(from_env)
@@ -367,6 +445,7 @@ def _default_stdio_command() -> list[str]:
 
 
 def _default_initialize_params() -> dict[str, Any]:
+    """Return minimal initialize payload for Codex app-server."""
     return {
         "protocolVersion": "1",
         "clientInfo": {
@@ -378,6 +457,7 @@ def _default_initialize_params() -> dict[str, Any]:
 
 
 def _extract_thread_id(payload: Any) -> str | None:
+    """Extract thread id from a nested response payload, best effort."""
     if not isinstance(payload, (dict, list)):
         return None
     direct = _find_first_string_by_exact_keys(payload, {"threadid", "thread_id"})
@@ -392,6 +472,7 @@ def _extract_thread_id(payload: Any) -> str | None:
 
 
 def _extract_turn_id(payload: Any) -> str | None:
+    """Extract turn id from a nested response payload, best effort."""
     if not isinstance(payload, (dict, list)):
         return None
     direct = _find_first_string_by_exact_keys(payload, {"turnid", "turn_id"})
@@ -409,6 +490,7 @@ def _find_first_string_by_exact_keys(
     payload: Any,
     keys_lower: set[str],
 ) -> str | None:
+    """Depth-first search for first string whose key matches provided names."""
     if isinstance(payload, dict):
         for key, value in payload.items():
             if key.lower() in keys_lower and isinstance(value, str):
@@ -429,6 +511,7 @@ def _find_first_dict_by_exact_key(
     payload: Any,
     keys_lower: set[str],
 ) -> dict[str, Any] | None:
+    """Depth-first search for first dict whose key matches provided names."""
     if isinstance(payload, dict):
         for key, value in payload.items():
             if key.lower() in keys_lower and isinstance(value, dict):
@@ -446,10 +529,12 @@ def _find_first_dict_by_exact_key(
 
 
 def _event_mentions_turn_id(event: dict[str, Any], turn_id: str) -> bool:
+    """Return True if event params appear to reference the target turn id."""
     return _payload_mentions_turn_id(event.get("params"), turn_id)
 
 
 def _payload_mentions_turn_id(payload: Any, turn_id: str) -> bool:
+    """Recursive helper that checks whether payload contains target turn id."""
     if isinstance(payload, dict):
         for key, value in payload.items():
             key_lower = key.lower()
@@ -465,12 +550,14 @@ def _payload_mentions_turn_id(payload: Any, turn_id: str) -> bool:
 
 
 def _extract_text_fragments(payload: Any) -> list[str]:
+    """Extract textual fragments from nested payload structures."""
     fragments: list[str] = []
     _collect_text(payload, fragments)
     return fragments
 
 
 def _collect_text(payload: Any, out: list[str]) -> None:
+    """Recursively append likely text-bearing values to output list."""
     if isinstance(payload, dict):
         for key, value in payload.items():
             key_lower = key.lower()

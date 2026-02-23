@@ -15,24 +15,32 @@ except Exception:  # pragma: no cover
 
 
 class Transport(ABC):
+    """Abstract transport interface for JSON-RPC message exchange."""
+
     @abstractmethod
     async def connect(self) -> None:
+        """Open transport resources and establish connection."""
         raise NotImplementedError
 
     @abstractmethod
     async def send(self, payload: Mapping[str, Any]) -> None:
+        """Send one JSON-serializable message."""
         raise NotImplementedError
 
     @abstractmethod
     async def recv(self) -> dict[str, Any]:
+        """Receive one JSON message as a dictionary."""
         raise NotImplementedError
 
     @abstractmethod
     async def close(self) -> None:
+        """Close transport resources."""
         raise NotImplementedError
 
 
 class StdioTransport(Transport):
+    """JSON-RPC transport over a subprocess stdin/stdout pipe."""
+
     def __init__(
         self,
         command: Sequence[str],
@@ -41,6 +49,14 @@ class StdioTransport(Transport):
         env: Mapping[str, str] | None = None,
         connect_timeout: float = 30.0,
     ) -> None:
+        """Configure stdio transport.
+
+        Args:
+            command: Command argv used to start the app-server process.
+            cwd: Optional subprocess working directory.
+            env: Optional environment overrides for subprocess.
+            connect_timeout: Timeout for subprocess creation.
+        """
         if not command:
             raise ValueError("stdio command must not be empty")
         self._command = list(command)
@@ -50,6 +66,7 @@ class StdioTransport(Transport):
         self._proc: asyncio.subprocess.Process | None = None
 
     async def connect(self) -> None:
+        """Start subprocess if not already running."""
         if self._proc is not None:
             return
         try:
@@ -70,6 +87,7 @@ class StdioTransport(Transport):
             ) from exc
 
     async def send(self, payload: Mapping[str, Any]) -> None:
+        """Write one JSON line to subprocess stdin."""
         if self._proc is None or self._proc.stdin is None:
             raise CodexTransportError("stdio transport is not connected")
         line = json.dumps(dict(payload), separators=(",", ":")) + "\n"
@@ -80,6 +98,7 @@ class StdioTransport(Transport):
             raise CodexTransportError("failed writing to stdio transport") from exc
 
     async def recv(self) -> dict[str, Any]:
+        """Read one JSON line from subprocess stdout."""
         if self._proc is None or self._proc.stdout is None:
             raise CodexTransportError("stdio transport is not connected")
         try:
@@ -94,6 +113,7 @@ class StdioTransport(Transport):
             raise CodexTransportError("received invalid JSON from stdio transport") from exc
 
     async def close(self) -> None:
+        """Terminate subprocess and release handles."""
         if self._proc is None:
             return
 
@@ -113,6 +133,8 @@ class StdioTransport(Transport):
 
 
 class WebSocketTransport(Transport):
+    """JSON-RPC transport over a websocket connection."""
+
     def __init__(
         self,
         url: str,
@@ -120,12 +142,20 @@ class WebSocketTransport(Transport):
         headers: Mapping[str, str] | None = None,
         connect_timeout: float = 30.0,
     ) -> None:
+        """Configure websocket transport.
+
+        Args:
+            url: Websocket endpoint URL.
+            headers: Optional request headers, including auth.
+            connect_timeout: Timeout for websocket handshake.
+        """
         self._url = url
         self._headers = dict(headers) if headers is not None else None
         self._connect_timeout = connect_timeout
         self._socket: Any = None
 
     async def connect(self) -> None:
+        """Open websocket if not already connected."""
         if self._socket is not None:
             return
         if websockets is None:  # pragma: no cover
@@ -146,6 +176,7 @@ class WebSocketTransport(Transport):
             ) from exc
 
     async def send(self, payload: Mapping[str, Any]) -> None:
+        """Send one JSON text frame over websocket."""
         if self._socket is None:
             raise CodexTransportError("websocket transport is not connected")
         try:
@@ -154,6 +185,7 @@ class WebSocketTransport(Transport):
             raise CodexTransportError("failed writing to websocket transport") from exc
 
     async def recv(self) -> dict[str, Any]:
+        """Receive and decode one websocket frame as JSON."""
         if self._socket is None:
             raise CodexTransportError("websocket transport is not connected")
         try:
@@ -173,6 +205,7 @@ class WebSocketTransport(Transport):
             ) from exc
 
     async def close(self) -> None:
+        """Close websocket connection."""
         if self._socket is None:
             return
         socket = self._socket
