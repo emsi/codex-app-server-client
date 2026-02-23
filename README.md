@@ -2,10 +2,11 @@
 
 Async Python client library for Codex app-server using either `stdio` or `websocket` transport.
 
-Current scope is intentionally small:
+Current:
 - JSON-RPC request/response handling
 - `initialize`
 - basic thread + turn chat flow
+- completed-step streaming API via `chat(...)` (non-delta)
 - high-level non-streaming `chat_once(...)`
 
 ## Install
@@ -69,6 +70,39 @@ Websocket defaults:
 
 More complete examples are included under `examples/`.
 
+### Rich step-stream example (thinking/exec/codex blocks)
+
+This is the recommended example for understanding the new step-oriented API.
+It uses `client.chat(...)` and prints each completed step in a separate block.
+
+Stdio:
+
+```bash
+uv run python examples/chat_steps_rich.py
+```
+
+Websocket:
+
+```bash
+uv run python examples/chat_steps_rich.py --transport websocket --url ws://127.0.0.1:8765
+```
+
+With extra payload summaries:
+
+```bash
+uv run python examples/chat_steps_rich.py --show-data
+```
+
+Common options:
+- `--transport {stdio,websocket}`
+- `--cmd "codex app-server"` (stdio mode)
+- `--url ws://127.0.0.1:8765` (websocket mode)
+- `--token "$CODEX_APP_SERVER_TOKEN"` (websocket mode)
+- `--prompt "..."`
+- `--user "..."`
+- `--turn-timeout 180`
+- `--show-data`
+
 ### Stdio example (multi-turn, one thread)
 
 ```bash
@@ -115,7 +149,7 @@ uv run python examples/chat_session_websocket.py
 - `start()`: connect transport and start receive loop.
 - `initialize(params=None, timeout=None)`: perform JSON-RPC initialize handshake.
 - `request(method, params=None, timeout=None)`: low-level JSON-RPC request helper.
-- `chat(text, ...)`: async iterator that yields completed non-delta conversation steps (`thinking`, `exec`, `codex`, etc.) from item completion notifications.
+- `chat(text, thread_id=None, user=None, metadata=None, timeout=None)`: async iterator that yields completed non-delta conversation steps (`thinking`, `exec`, `codex`, etc.) from item completion notifications.
 - `chat_once(text, thread_id=None, user=None, metadata=None, timeout=None)`: send one user message and wait for completed turn.
 - `interrupt_turn(turn_id, timeout=None)`: send turn interruption request.
 - `close()`: cancel receive loop and close transport.
@@ -136,6 +170,7 @@ async for step in client.chat("Summarize staged changes and draft a commit messa
 ### Data models (`src/codex_app_server_client/models.py`)
 
 - `InitializeResult`: parsed initialize response (`protocol_version`, `server_info`, `capabilities`, `raw`).
+- `ConversationStep`: completed step from `chat(...)` (`step_type`, `item_type`, `text`, `item_id`, `thread_id`, `turn_id`, `data`).
 - `ChatResult`: buffered turn output (`thread_id`, `turn_id`, `final_text`, `raw_events`, `assistant_item_id`, `completion_source`).
 
 ### Exceptions (`src/codex_app_server_client/errors.py`)
@@ -147,7 +182,8 @@ async for step in client.chat("Summarize staged changes and draft a commit messa
 
 ## Behavior notes
 
-- This version does not expose a streaming event API.
+- This version does not expose token-delta streaming as a public API.
+- `chat(...)` provides async streaming of completed step blocks (non-delta).
 - `chat_once` buffers notifications and resolves final assistant text from completed `agentMessage` items (`item/completed`), with a `thread/read(includeTurns=true)` fallback.
 - `chat_once` does not rely on delta-string concatenation heuristics for final output.
 - The client uses modern thread/turn methods (`thread/start`, `thread/resume`, `turn/start`, `turn/interrupt`).
