@@ -115,9 +115,17 @@ uv run python examples/chat_session_websocket.py
 - `start()`: connect transport and start receive loop.
 - `initialize(params=None, timeout=None)`: perform JSON-RPC initialize handshake.
 - `request(method, params=None, timeout=None)`: low-level JSON-RPC request helper.
+- `chat(text, ...)`: async iterator that yields completed non-delta conversation steps (`thinking`, `exec`, `codex`, etc.) from item completion notifications.
 - `chat_once(text, thread_id=None, user=None, metadata=None, timeout=None)`: send one user message and wait for completed turn.
 - `interrupt_turn(turn_id, timeout=None)`: send turn interruption request.
 - `close()`: cancel receive loop and close transport.
+
+Example:
+
+```python
+async for step in client.chat("Summarize staged changes and draft a commit message"):
+    print(step.step_type, step.text)
+```
 
 ### `Transport` and implementations (`src/codex_app_server_client/transport.py`)
 

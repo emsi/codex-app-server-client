@@ -5,7 +5,7 @@ from .errors import (
     CodexTimeoutError,
     CodexTransportError,
 )
-from .models import ChatResult, InitializeResult
+from .models import ChatResult, ConversationStep, InitializeResult
 
 __all__ = [
     "ChatResult",
@@ -14,5 +14,6 @@ __all__ = [
     "CodexProtocolError",
     "CodexTimeoutError",
     "CodexTransportError",
+    "ConversationStep",
     "InitializeResult",
 ]

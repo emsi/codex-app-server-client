@@ -4,11 +4,11 @@ import asyncio
 import contextlib
 import os
 import shlex
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Any, Literal
 
 from .errors import CodexProtocolError, CodexTimeoutError, CodexTransportError
-from .models import ChatResult, InitializeResult
+from .models import ChatResult, ConversationStep, InitializeResult
 from .protocol import (
     DEFAULT_OPT_OUT_NOTIFICATION_METHODS,
     INITIALIZE_METHOD,
@@ -361,6 +361,113 @@ class CodexClient:
             completion_source=completion_source,
         )
 
+    async def chat(
+        self,
+        text: str,
+        thread_id: str | None = None,
+        *,
+        user: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> AsyncIterator[ConversationStep]:
+        """Stream completed, non-delta conversation steps for one user message.
+
+        This API yields complete step objects based on `item/completed`
+        notifications and does not concatenate text deltas heuristically.
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        active_thread_id = thread_id
+        if active_thread_id is None:
+            thread_result = await self.request(
+                THREAD_START_METHOD,
+                {"metadata": dict(metadata)} if metadata else {},
+            )
+            active_thread_id = _extract_thread_id(thread_result)
+            if not active_thread_id:
+                raise CodexProtocolError("thread/start succeeded but no thread id found")
+        else:
+            try:
+                await self.request(THREAD_RESUME_METHOD, {"threadId": active_thread_id})
+            except CodexProtocolError:
+                if self._strict:
+                    raise
+
+        turn_params: dict[str, Any] = {
+            "threadId": active_thread_id,
+            "input": [{"type": "text", "text": text}],
+        }
+        if user:
+            turn_params["user"] = user
+        if metadata:
+            turn_params["metadata"] = dict(metadata)
+
+        turn_result = await self.request(TURN_START_METHOD, turn_params)
+        turn_id = _extract_turn_id(turn_result)
+
+        loop = asyncio.get_running_loop()
+        timeout_seconds = timeout if timeout is not None else self._turn_timeout
+        deadline = loop.time() + timeout_seconds
+        seen_item_ids: set[str] = set()
+
+        while True:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                raise CodexTimeoutError(
+                    f"turn completion not observed within {timeout_seconds:.1f}s"
+                )
+
+            event = await asyncio.wait_for(self._notifications.get(), timeout=remaining)
+            method = event.get("method")
+            if not isinstance(method, str):
+                continue
+
+            if method == "__transport_error__":
+                message = (
+                    _find_first_string_by_exact_keys(event, {"message"})
+                    or "transport failed"
+                )
+                raise CodexTransportError(message)
+
+            matches_turn = True
+            if turn_id:
+                matches_turn = _event_mentions_turn_id(event, turn_id)
+            if turn_id and not matches_turn and not is_turn_completed(method):
+                continue
+
+            if is_turn_failed(method):
+                details = _find_first_string_by_exact_keys(event, {"message", "error"})
+                raise CodexProtocolError(details or "turn failed")
+
+            step = _extract_completed_step(method, event)
+            if step is not None:
+                if step.thread_id != active_thread_id:
+                    pass
+                elif turn_id and step.turn_id != turn_id:
+                    pass
+                else:
+                    if step.item_id is None or step.item_id not in seen_item_ids:
+                        if step.item_id is not None:
+                            seen_item_ids.add(step.item_id)
+                        yield step
+
+            if is_turn_completed(method):
+                if turn_id and not matches_turn and self._strict:
+                    continue
+                if turn_id is not None:
+                    for fallback_step in await self._read_turn_steps(
+                        thread_id=active_thread_id,
+                        turn_id=turn_id,
+                    ):
+                        if fallback_step.item_id is None:
+                            continue
+                        if fallback_step.item_id in seen_item_ids:
+                            continue
+                        seen_item_ids.add(fallback_step.item_id)
+                        yield fallback_step
+                return
+
     async def interrupt_turn(
         self, turn_id: str, *, timeout: float | None = None
     ) -> None:
@@ -378,20 +485,35 @@ class CodexClient:
         turn_id: str | None,
     ) -> tuple[str | None, str] | None:
         """Read thread state and return final assistant message for a turn when available."""
+        steps = await self._read_turn_steps(thread_id=thread_id, turn_id=turn_id)
+        final_message: tuple[str | None, str] | None = None
+        for step in steps:
+            if step.item_type != "agentMessage":
+                continue
+            final_message = (step.item_id, step.text or "")
+        return final_message
+
+    async def _read_turn_steps(
+        self,
+        *,
+        thread_id: str,
+        turn_id: str | None,
+    ) -> list[ConversationStep]:
+        """Read thread state and return completed steps for target turn."""
         response = await self.request(
             THREAD_READ_METHOD,
             {"threadId": thread_id, "includeTurns": True},
         )
         if not isinstance(response, dict):
-            return None
+            return []
 
         thread = response.get("thread")
         if not isinstance(thread, dict):
-            return None
+            return []
 
         turns = thread.get("turns")
         if not isinstance(turns, list):
-            return None
+            return []
 
         target_turn: dict[str, Any] | None = None
         if turn_id is not None:
@@ -405,25 +527,32 @@ class CodexClient:
                 target_turn = last_turn
 
         if target_turn is None:
-            return None
+            return []
 
         items = target_turn.get("items")
         if not isinstance(items, list):
-            return None
+            return []
 
-        final_message: tuple[str | None, str] | None = None
+        resolved_thread_id = thread.get("id")
+        if not isinstance(resolved_thread_id, str):
+            resolved_thread_id = thread_id
+        resolved_turn_id = target_turn.get("id")
+        if not isinstance(resolved_turn_id, str):
+            resolved_turn_id = turn_id or ""
+
+        steps: list[ConversationStep] = []
         for item in items:
             if not isinstance(item, dict):
                 continue
-            if item.get("type") != "agentMessage":
-                continue
-            text = item.get("text")
-            if not isinstance(text, str):
-                continue
-            item_id = item.get("id")
-            final_message = (item_id if isinstance(item_id, str) else None, text)
+            step = _step_from_item(
+                thread_id=resolved_thread_id,
+                turn_id=resolved_turn_id,
+                item=item,
+            )
+            if step is not None:
+                steps.append(step)
 
-        return final_message
+        return steps
 
     def _start_receiver(self) -> None:
         """Start background receive loop exactly once."""
@@ -715,3 +844,115 @@ def _extract_completed_agent_message(
 
     item_id = item.get("id")
     return (item_id if isinstance(item_id, str) else None, text)
+
+
+def _extract_completed_step(
+    method: str,
+    event: dict[str, Any],
+) -> ConversationStep | None:
+    """Extract one completed step from modern or compat item-completed notifications."""
+    if method == ITEM_COMPLETED_METHOD:
+        params = event.get("params")
+        if not isinstance(params, dict):
+            return None
+        thread_id = params.get("threadId")
+        turn_id = params.get("turnId")
+        item = params.get("item")
+    elif method == "codex/event/item_completed":
+        params = event.get("params")
+        if not isinstance(params, dict):
+            return None
+        msg = params.get("msg")
+        if not isinstance(msg, dict):
+            return None
+        thread_id = msg.get("thread_id")
+        turn_id = msg.get("turn_id")
+        item = msg.get("item")
+    else:
+        return None
+
+    if not isinstance(thread_id, str) or not isinstance(turn_id, str):
+        return None
+    if not isinstance(item, dict):
+        return None
+
+    return _step_from_item(thread_id=thread_id, turn_id=turn_id, item=item)
+
+
+def _step_from_item(
+    *,
+    thread_id: str,
+    turn_id: str,
+    item: dict[str, Any],
+) -> ConversationStep | None:
+    """Convert a completed thread item into a canonical conversation step."""
+    item_type = item.get("type")
+    if not isinstance(item_type, str):
+        return None
+    item_id = item.get("id")
+    item_id_value = item_id if isinstance(item_id, str) else None
+
+    step_type = _map_step_type(item_type)
+    text = _extract_step_text(item_type, item)
+    return ConversationStep(
+        thread_id=thread_id,
+        turn_id=turn_id,
+        item_id=item_id_value,
+        step_type=step_type,
+        item_type=item_type,
+        status="completed",
+        text=text,
+        data={"item": item},
+    )
+
+
+def _map_step_type(item_type: str) -> str:
+    """Map protocol item type to user-facing step category."""
+    mapping = {
+        "reasoning": "thinking",
+        "commandExecution": "exec",
+        "agentMessage": "codex",
+        "mcpToolCall": "tool",
+        "fileChange": "file",
+        "webSearch": "web",
+        "plan": "plan",
+        "userMessage": "user",
+    }
+    return mapping.get(item_type, item_type)
+
+
+def _extract_step_text(item_type: str, item: dict[str, Any]) -> str | None:
+    """Extract readable step text from a completed item payload."""
+    if item_type in {"agentMessage", "plan"}:
+        text = item.get("text")
+        return text if isinstance(text, str) else None
+
+    if item_type == "reasoning":
+        parts: list[str] = []
+        summary = item.get("summary")
+        if isinstance(summary, list):
+            parts.extend(part for part in summary if isinstance(part, str))
+        content = item.get("content")
+        if isinstance(content, list):
+            parts.extend(part for part in content if isinstance(part, str))
+        return "\n".join(parts) if parts else None
+
+    if item_type == "commandExecution":
+        command = item.get("command")
+        if isinstance(command, str):
+            return command
+        return None
+
+    if item_type == "webSearch":
+        query = item.get("query")
+        if isinstance(query, str):
+            return query
+        return None
+
+    if item_type == "mcpToolCall":
+        tool = item.get("tool")
+        if isinstance(tool, str):
+            return tool
+        return None
+
+    return None

@@ -39,3 +39,27 @@ class ChatResult(BaseModel):
     raw_events: list[dict[str, Any]] = Field(default_factory=list)
     assistant_item_id: str | None = None
     completion_source: Literal["item_completed", "thread_read_fallback"] | None = None
+
+
+class ConversationStep(BaseModel):
+    """A completed, non-delta conversation step emitted during a turn.
+
+    Attributes:
+        thread_id: Parent thread identifier.
+        turn_id: Parent turn identifier.
+        item_id: Underlying item identifier when provided.
+        step_type: Canonical label for UI/clients (e.g. thinking/exec/codex).
+        item_type: Raw protocol item type (e.g. reasoning/commandExecution/agentMessage).
+        status: Step lifecycle status for this event.
+        text: Human-readable text for the step when available.
+        data: Full item payload and metadata for advanced consumers.
+    """
+
+    thread_id: str
+    turn_id: str
+    item_id: str | None = None
+    step_type: str
+    item_type: str | None = None
+    status: Literal["completed"] = "completed"
+    text: str | None = None
+    data: dict[str, Any] = Field(default_factory=dict)
