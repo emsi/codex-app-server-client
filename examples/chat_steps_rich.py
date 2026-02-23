@@ -138,9 +138,11 @@ def _compact_data(step: ConversationStep) -> dict[str, object] | None:
     if step.item_type == "fileChange":
         return {
             "status": item.get("status"),
-            "changes_count": len(item.get("changes", []))
-            if isinstance(item.get("changes"), list)
-            else None,
+            "changes_count": (
+                len(item.get("changes", []))
+                if isinstance(item.get("changes"), list)
+                else None
+            ),
         }
 
     return {"item_type": step.item_type, "item_id": step.item_id}

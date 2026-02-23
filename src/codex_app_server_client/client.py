@@ -69,7 +69,7 @@ class CodexClient:
         transport: Transport,
         *,
         request_timeout: float = 30.0,
-        inactivity_timeout: float | None = 120.0,
+        inactivity_timeout: float | None = 180.0,
         strict: bool = False,
     ) -> None:
         """Create a client bound to a transport.
@@ -106,13 +106,11 @@ class CodexClient:
         env: Mapping[str, str] | None = None,
         connect_timeout: float = 30.0,
         request_timeout: float = 30.0,
-        inactivity_timeout: float | None = 120.0,
+        inactivity_timeout: float | None = 180.0,
         strict: bool = False,
     ) -> CodexClient:
         """Create and connect a client over stdio transport."""
-        resolved_command = (
-            list(command) if command is not None else _default_stdio_command()
-        )
+        resolved_command = list(command) if command is not None else _default_stdio_command()
         transport = StdioTransport(
             resolved_command,
             cwd=cwd,
@@ -137,13 +135,11 @@ class CodexClient:
         headers: Mapping[str, str] | None = None,
         connect_timeout: float = 30.0,
         request_timeout: float = 30.0,
-        inactivity_timeout: float | None = 120.0,
+        inactivity_timeout: float | None = 180.0,
         strict: bool = False,
     ) -> CodexClient:
         """Create and connect a client over websocket transport."""
-        resolved_url = (
-            url or os.getenv("CODEX_APP_SERVER_WS_URL") or "ws://127.0.0.1:8765"
-        )
+        resolved_url = url or os.getenv("CODEX_APP_SERVER_WS_URL") or "ws://127.0.0.1:8765"
         resolved_token = token or os.getenv("CODEX_APP_SERVER_TOKEN")
         resolved_headers = dict(headers) if headers is not None else {}
         if resolved_token and "Authorization" not in resolved_headers:
@@ -215,9 +211,7 @@ class CodexClient:
                 result_dict,
                 {"protocolversion", "protocol_version"},
             ),
-            server_info=_find_first_dict_by_exact_key(
-                result_dict, {"serverinfo", "server_info"}
-            ),
+            server_info=_find_first_dict_by_exact_key(result_dict, {"serverinfo", "server_info"}),
             capabilities=_find_first_dict_by_exact_key(result_dict, {"capabilities"}),
             raw=result_dict,
         )
@@ -236,9 +230,7 @@ class CodexClient:
         request_id = self._next_request_id
         self._next_request_id += 1
 
-        message = make_request(
-            request_id, method, dict(params) if params is not None else None
-        )
+        message = make_request(request_id, method, dict(params) if params is not None else None)
         loop = asyncio.get_running_loop()
         future: asyncio.Future[dict[str, Any]] = loop.create_future()
         self._pending[request_id] = future
@@ -467,9 +459,7 @@ class CodexClient:
             )
 
         if session.thread_id != thread_id:
-            raise CodexProtocolError(
-                "continuation thread_id does not match active turn session"
-            )
+            raise CodexProtocolError("continuation thread_id does not match active turn session")
 
         was_interrupted = False
         if not session.completed and not session.failed:
@@ -486,9 +476,7 @@ class CodexClient:
 
         unread_events = list(session.raw_events[cursor:])
         unread_steps = [
-            record.step
-            for record in session.step_records
-            if record.event_index >= cursor
+            record.step for record in session.step_records if record.event_index >= cursor
         ]
 
         result = CancelResult(
@@ -503,9 +491,7 @@ class CodexClient:
         self._cleanup_turn_state(turn_id)
         return result
 
-    async def interrupt_turn(
-        self, turn_id: str, *, timeout: float | None = None
-    ) -> None:
+    async def interrupt_turn(self, turn_id: str, *, timeout: float | None = None) -> None:
         """Send best-effort `turn/interrupt` for a running turn."""
         await self.request(
             TURN_INTERRUPT_METHOD,
@@ -608,9 +594,7 @@ class CodexClient:
             )
             active_thread_id = _extract_thread_id(thread_result)
             if not active_thread_id:
-                raise CodexProtocolError(
-                    "thread/start succeeded but no thread id found"
-                )
+                raise CodexProtocolError("thread/start succeeded but no thread id found")
         else:
             try:
                 await self.request(THREAD_RESUME_METHOD, {"threadId": active_thread_id})
@@ -649,14 +633,10 @@ class CodexClient:
 
         session = self._turn_sessions.get(continuation.turn_id)
         if session is None:
-            raise CodexProtocolError(
-                "continuation is no longer available in this client instance"
-            )
+            raise CodexProtocolError("continuation is no longer available in this client instance")
 
         if session.thread_id != continuation.thread_id:
-            raise CodexProtocolError(
-                "continuation thread_id does not match active turn session"
-            )
+            raise CodexProtocolError("continuation thread_id does not match active turn session")
 
         return session
 
@@ -781,15 +761,12 @@ class CodexClient:
             return True
 
         has_direct_turn = (
-            _find_first_string_by_exact_keys(params, {"turnid", "turn_id"})
-            is not None
+            _find_first_string_by_exact_keys(params, {"turnid", "turn_id"}) is not None
         )
         turn_obj = _find_first_dict_by_exact_key(params, {"turn"})
         has_turn_obj = False
         if turn_obj is not None:
-            has_turn_obj = (
-                _find_first_string_by_exact_keys(turn_obj, {"id"}) is not None
-            )
+            has_turn_obj = _find_first_string_by_exact_keys(turn_obj, {"id"}) is not None
 
         return not has_direct_turn and not has_turn_obj
 
@@ -809,7 +786,12 @@ class CodexClient:
                     session.completed_item_ids.add(item_id)
                 session.completed_agent_messages.append(completed_message)
 
-        step = _extract_completed_step(method, event)
+        step = _extract_completed_step(
+            method,
+            event,
+            fallback_thread_id=session.thread_id,
+            fallback_turn_id=session.turn_id,
+        )
         if step is not None:
             if step.item_id is None or step.item_id not in session.step_item_ids:
                 if step.item_id is not None:
@@ -938,9 +920,7 @@ def _prepare_initialize_params(
 
     capabilities_dict = dict(capabilities)
     if "optOutNotificationMethods" not in capabilities_dict:
-        capabilities_dict["optOutNotificationMethods"] = list(
-            DEFAULT_OPT_OUT_NOTIFICATION_METHODS
-        )
+        capabilities_dict["optOutNotificationMethods"] = list(DEFAULT_OPT_OUT_NOTIFICATION_METHODS)
     payload["capabilities"] = capabilities_dict
     return payload
 
@@ -1009,7 +989,8 @@ def _extract_completed_agent_message(
     if item_type != "agentMessage":
         return None
 
-    item_id = item.get("id") if isinstance(item.get("id"), str) else None
+    item_id_raw = item.get("id")
+    item_id: str | None = item_id_raw if isinstance(item_id_raw, str) else None
     text = _extract_item_text(item)
     if text is None:
         return None
@@ -1019,6 +1000,9 @@ def _extract_completed_agent_message(
 def _extract_completed_step(
     method: str,
     payload: dict[str, Any],
+    *,
+    fallback_thread_id: str | None = None,
+    fallback_turn_id: str | None = None,
 ) -> ConversationStep | None:
     """Build a completed conversation step from an `item/completed` event."""
     if method != ITEM_COMPLETED_METHOD:
@@ -1043,6 +1027,11 @@ def _extract_completed_step(
         turn_obj = _find_first_dict_by_exact_key(params, {"turn"})
         if turn_obj is not None:
             turn_id = _find_first_string_by_exact_keys(turn_obj, {"id"})
+
+    if thread_id is None:
+        thread_id = fallback_thread_id
+    if turn_id is None:
+        turn_id = fallback_turn_id
 
     if not thread_id or not turn_id:
         return None

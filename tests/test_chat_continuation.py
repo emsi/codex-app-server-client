@@ -312,7 +312,9 @@ def test_chat_once_timeout_can_resume_with_continuation() -> None:
             assert continuation is not None
             assert continuation.mode == "once"
 
-            result = await client.chat_once(continuation=continuation, inactivity_timeout=1.0)
+            result = await client.chat_once(
+                continuation=continuation, inactivity_timeout=1.0
+            )
             assert result.final_text == "Final answer"
             assert result.turn_id == "turn-1"
         finally:
@@ -342,7 +344,9 @@ def test_chat_stream_timeout_can_resume_without_duplicates() -> None:
             assert continuation is not None
             assert continuation.mode == "stream"
 
-            async for step in client.chat(continuation=continuation, inactivity_timeout=1.0):
+            async for step in client.chat(
+                continuation=continuation, inactivity_timeout=1.0
+            ):
                 seen_step_types.append(step.step_type)
 
             assert seen_step_types == ["thinking", "exec", "codex"]

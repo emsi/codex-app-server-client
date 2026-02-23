@@ -107,9 +107,7 @@ class StdioTransport(Transport):
         try:
             return json.loads(line.decode("utf-8"))
         except json.JSONDecodeError as exc:
-            raise CodexTransportError(
-                "received invalid JSON from stdio transport"
-            ) from exc
+            raise CodexTransportError("received invalid JSON from stdio transport") from exc
 
     async def close(self) -> None:
         """Terminate subprocess and release handles."""
@@ -188,9 +186,7 @@ class WebSocketTransport(Transport):
         try:
             message = await self._socket.recv()
         except Exception as exc:
-            raise CodexTransportError(
-                "failed reading from websocket transport"
-            ) from exc
+            raise CodexTransportError("failed reading from websocket transport") from exc
 
         if isinstance(message, (bytes, bytearray)):
             text = message.decode("utf-8")
@@ -199,9 +195,7 @@ class WebSocketTransport(Transport):
         try:
             return json.loads(text)
         except json.JSONDecodeError as exc:
-            raise CodexTransportError(
-                "received invalid JSON from websocket transport"
-            ) from exc
+            raise CodexTransportError("received invalid JSON from websocket transport") from exc
 
     async def close(self) -> None:
         """Close websocket connection."""

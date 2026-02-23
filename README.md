@@ -1,14 +1,17 @@
 # codex-app-server-client
 
-Async Python client library for Codex app-server over `stdio` or `websocket` transport.
+High-level async Python client for `codex app-server`.
 
-Current:
-- JSON-RPC request/response handling
-- `initialize`
-- high-level non-streaming `chat_once(...)`
-- step-streaming `chat(...)` (non-delta)
-- inactivity-timeout continuations for both `chat_once` and `chat`
-- cancellation with unread-data drain via `cancel(...)`
+It gives you a convenient conversation API over `stdio` or `websocket` without having to manage raw protocol events yourself.
+
+## Highlights
+
+- simple one-shot turns with `chat_once(...)`
+- step-streaming turns with `chat(...)` (`thinking`, `exec`, `codex`, etc.), non-delta
+- built-in thread/turn lifecycle handling
+- inactivity timeout continuation for long-running turns
+- turn cancellation with unread-step/event drain via `cancel(...)`
+- optional low-level `request(...)` access when needed
 
 ## Install
 
@@ -16,7 +19,7 @@ Current:
 uv sync
 ```
 
-## Basic usage
+## Quick start
 
 ### Stdio
 

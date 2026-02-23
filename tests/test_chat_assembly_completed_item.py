@@ -61,21 +61,33 @@ class CompletedItemTransport(Transport):
                 {
                     "jsonrpc": "2.0",
                     "method": "item/agentMessage/delta",
-                    "params": {"threadId": "thread-1", "turnId": "turn-1", "delta": "a"},
+                    "params": {
+                        "threadId": "thread-1",
+                        "turnId": "turn-1",
+                        "delta": "a",
+                    },
                 }
             )
             await self._incoming.put(
                 {
                     "jsonrpc": "2.0",
                     "method": "item/agentMessage/delta",
-                    "params": {"threadId": "thread-1", "turnId": "turn-1", "delta": " a"},
+                    "params": {
+                        "threadId": "thread-1",
+                        "turnId": "turn-1",
+                        "delta": " a",
+                    },
                 }
             )
             await self._incoming.put(
                 {
                     "jsonrpc": "2.0",
                     "method": "item/agentMessage/delta",
-                    "params": {"threadId": "thread-1", "turnId": "turn-1", "delta": " a"},
+                    "params": {
+                        "threadId": "thread-1",
+                        "turnId": "turn-1",
+                        "delta": " a",
+                    },
                 }
             )
             if self._emit_item_completed:

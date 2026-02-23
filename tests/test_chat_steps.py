@@ -125,7 +125,10 @@ def test_chat_yields_completed_steps_non_delta() -> None:
             await client.close()
 
         assert [s.step_type for s in seen] == ["thinking", "exec", "codex"]
-        assert seen[0].text == "Inspecting repository changes\nDrafting a clear commit message"
+        assert (
+            seen[0].text
+            == "Inspecting repository changes\nDrafting a clear commit message"
+        )
         assert seen[1].text == "git diff --cached"
         assert seen[2].text == "Commit message: feat: improve transport behavior"
 
