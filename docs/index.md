@@ -20,15 +20,39 @@ This documentation is organized around:
 
 ## Install
 
+Install `uv` (if needed):
+
 ```bash
-uv sync
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-## Local docs workflow
+Install the package from PyPI:
+
+```bash
+uv add codex-app-server-sdk
+```
+
+Or pip-compatible install in the active environment:
+
+```bash
+uv pip install codex-app-server-sdk
+```
+
+## Contributor docs workflow
+
+Install development dependencies:
+
+```bash
+uv sync --group dev
+```
+
+Serve docs locally:
 
 ```bash
 uv run zensical serve
 ```
+
+Build docs:
 
 ```bash
 uv run zensical build
