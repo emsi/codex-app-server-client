@@ -50,3 +50,5 @@ result = await thread.chat_once("Hello")
 
 - `metadata` is applied on `turn/start`
 - [`TurnOverrides`](api/models.md#codex_app_server_client.models.TurnOverrides) controls per-turn execution options (`cwd`, `model`, `effort`, etc.)
+- when resuming with `continuation=...`, do not pass `text`, `thread_id`,
+  `user`, `metadata`, `thread_config`, or `turn_overrides`

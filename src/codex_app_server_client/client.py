@@ -135,6 +135,10 @@ class ThreadHandle:
                 resolved inactivity timeout.
             CodexProtocolError: If protocol/server reports turn failure.
             CodexTransportError: If transport fails while waiting for turn events.
+
+        Notes:
+            When `continuation` is provided, `text`, `user`, `metadata`, and
+            `turn_overrides` cannot be provided in the same call.
         """
         return await self._client.chat_once(
             text,
@@ -178,6 +182,10 @@ class ThreadHandle:
                 resolved inactivity timeout.
             CodexProtocolError: If protocol/server reports turn failure.
             CodexTransportError: If transport fails while waiting for turn events.
+
+        Notes:
+            When `continuation` is provided, `text`, `user`, `metadata`, and
+            `turn_overrides` cannot be provided in the same call.
         """
         async for step in self._client.chat(
             text,
@@ -983,12 +991,19 @@ class CodexClient:
             CodexTransportError: If transport fails while receiving events.
 
         Notes:
-            When `continuation` is provided, `text`, `thread_config`, and
-            `turn_overrides` cannot be provided in the same call.
+            When `continuation` is provided, `text`, `thread_id`, `user`,
+            `metadata`, `thread_config`, and `turn_overrides` cannot be
+            provided in the same call.
         """
         if continuation is not None:
             if text is not None:
                 raise ValueError("text must be omitted when continuation is provided")
+            if thread_id is not None:
+                raise ValueError("thread_id cannot be used with continuation")
+            if user is not None:
+                raise ValueError("user cannot be used with continuation")
+            if metadata is not None:
+                raise ValueError("metadata cannot be used with continuation")
             if thread_config is not None:
                 raise ValueError("thread_config cannot be used with continuation")
             if turn_overrides is not None:
@@ -1113,12 +1128,19 @@ class CodexClient:
             Streaming is live-notification based and intentionally does not
             backfill from `thread/read` snapshots for the same turn.
 
-            When `continuation` is provided, `text`, `thread_config`, and
-            `turn_overrides` cannot be provided in the same call.
+            When `continuation` is provided, `text`, `thread_id`, `user`,
+            `metadata`, `thread_config`, and `turn_overrides` cannot be
+            provided in the same call.
         """
         if continuation is not None:
             if text is not None:
                 raise ValueError("text must be omitted when continuation is provided")
+            if thread_id is not None:
+                raise ValueError("thread_id cannot be used with continuation")
+            if user is not None:
+                raise ValueError("user cannot be used with continuation")
+            if metadata is not None:
+                raise ValueError("metadata cannot be used with continuation")
             if thread_config is not None:
                 raise ValueError("thread_config cannot be used with continuation")
             if turn_overrides is not None:

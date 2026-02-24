@@ -390,3 +390,87 @@ def test_cancel_returns_unread_and_allows_same_thread_reuse() -> None:
             await client.close()
 
     asyncio.run(_run())
+
+
+def test_chat_once_continuation_rejects_conflicting_args() -> None:
+    async def _run() -> None:
+        client = await CodexClient(
+            DelayedCompletionTransport(delay=0.05),
+            request_timeout=1.0,
+            inactivity_timeout=0.01,
+        ).start()
+
+        try:
+            continuation: ChatContinuation | None = None
+            try:
+                await client.chat_once("Hello")
+            except CodexTurnInactiveError as exc:
+                continuation = exc.continuation
+
+            assert continuation is not None
+
+            cases: list[tuple[dict[str, Any], str]] = [
+                ({"thread_id": "thread-x"}, "thread_id cannot be used with continuation"),
+                ({"user": "alice"}, "user cannot be used with continuation"),
+                (
+                    {"metadata": {"source": "test"}},
+                    "metadata cannot be used with continuation",
+                ),
+            ]
+
+            for kwargs, expected in cases:
+                try:
+                    await client.chat_once(continuation=continuation, **kwargs)
+                except ValueError as exc:
+                    assert str(exc) == expected
+                else:
+                    raise AssertionError(f"expected ValueError for kwargs={kwargs!r}")
+        finally:
+            await client.close()
+
+    asyncio.run(_run())
+
+
+def test_chat_stream_continuation_rejects_conflicting_args() -> None:
+    async def _run() -> None:
+        client = await CodexClient(
+            DelayedCompletionTransport(delay=0.05),
+            request_timeout=1.0,
+            inactivity_timeout=0.01,
+        ).start()
+
+        try:
+            continuation: ChatContinuation | None = None
+            try:
+                async for _ in client.chat("Hello"):
+                    pass
+            except CodexTurnInactiveError as exc:
+                continuation = exc.continuation
+
+            assert continuation is not None
+            resume = continuation
+
+            async def _consume(**kwargs: Any) -> None:
+                async for _ in client.chat(continuation=resume, **kwargs):
+                    pass
+
+            cases: list[tuple[dict[str, Any], str]] = [
+                ({"thread_id": "thread-x"}, "thread_id cannot be used with continuation"),
+                ({"user": "alice"}, "user cannot be used with continuation"),
+                (
+                    {"metadata": {"source": "test"}},
+                    "metadata cannot be used with continuation",
+                ),
+            ]
+
+            for kwargs, expected in cases:
+                try:
+                    await _consume(**kwargs)
+                except ValueError as exc:
+                    assert str(exc) == expected
+                else:
+                    raise AssertionError(f"expected ValueError for kwargs={kwargs!r}")
+        finally:
+            await client.close()
+
+    asyncio.run(_run())

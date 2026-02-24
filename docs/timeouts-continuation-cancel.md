@@ -40,6 +40,9 @@ Continuation is tied to in-memory session state in the same client instance.
 When `continuation=...` is used, do not pass:
 
 - `text`
+- `thread_id`
+- `user`
+- `metadata`
 - `thread_config`
 - `turn_overrides`
 

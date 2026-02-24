@@ -182,7 +182,10 @@ cfg = ThreadConfig(
 
 #### Continuation constraints
 
-When resuming with `continuation=...`, you cannot also pass `thread_config` or `turn_overrides` in that same call.
+When resuming with `continuation=...`, do not pass extra turn-start arguments in
+that same call. Specifically, do not pass: `text`, `thread_id`, `user`,
+`metadata`, `thread_config`, or `turn_overrides`.
+
 Apply thread changes via `thread.update_defaults(...)` or start a new/forked thread before continuing with a new turn.
 
 ## Example clients
