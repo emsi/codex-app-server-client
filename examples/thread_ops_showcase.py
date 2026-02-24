@@ -384,13 +384,24 @@ async def run(args: argparse.Namespace) -> int:
             _log(args, f"started thread_id={thread.thread_id}")
 
             _log(args, f"setting thread name={args.thread_name!r}...")
-            name_result = await client.set_thread_name(thread.thread_id, args.thread_name)
+            await client.set_thread_name(thread.thread_id, args.thread_name)
             if args.show_data:
-                _result_header("thread/name/set", name_result, show_data=True)
+                print("[result:thread/name/set]")
+                print(
+                    json.dumps(
+                        {
+                            "thread_id": thread.thread_id,
+                            "name": args.thread_name,
+                            "status": "ok",
+                        },
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
             else:
                 print(
                     "[result:thread/name/set] "
-                    f"name={args.thread_name!r} status={'ok' if name_result is None else name_result!r}"
+                    f"name={args.thread_name!r} status='ok'"
                 )
 
             if args.set_model is not None:
@@ -443,14 +454,24 @@ async def run(args: argparse.Namespace) -> int:
 
             if args.archive:
                 _log(args, "archiving thread...")
-                archive_result = await client.archive_thread(thread.thread_id)
+                await client.archive_thread(thread.thread_id)
                 if args.show_data:
-                    _result_header("thread/archive", archive_result, show_data=True)
+                    print("[result:thread/archive]")
+                    print(
+                        json.dumps(
+                            {
+                                "thread_id": thread.thread_id,
+                                "status": "ok",
+                            },
+                            indent=2,
+                            sort_keys=True,
+                        )
+                    )
                 else:
                     print(
                         "[result:thread/archive] "
                         f"thread_id={thread.thread_id} "
-                        f"status={'ok' if archive_result is None else archive_result!r}"
+                        "status='ok'"
                     )
                 _log(args, f"archived thread_id={thread.thread_id}")
         return 0
