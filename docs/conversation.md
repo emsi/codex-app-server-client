@@ -1,9 +1,17 @@
 # Conversation APIs
 
+## Related API
+
+- [`CodexClient.chat_once(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat_once)
+- [`CodexClient.chat(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat)
+- [`CodexClient.start_thread(...)`](api/client.md#codex_app_server_client.client.CodexClient.start_thread)
+- [`ThreadHandle`](api/client.md#codex_app_server_client.client.ThreadHandle)
+- [`TurnOverrides`](api/models.md#codex_app_server_client.models.TurnOverrides)
+
 Two high-level conversation entrypoints are provided:
 
-- `chat_once(...)`: one message in, final assistant text out
-- `chat(...)`: async iterator of completed, non-delta step blocks
+- [`chat_once(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat_once): one message in, final assistant text out
+- [`chat(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat): async iterator of completed, non-delta step blocks
 
 ## `chat_once(...)`
 
@@ -26,12 +34,12 @@ async for step in client.chat("Diagnose this failure"):
 
 ### Step source semantics
 
-`chat(...)` emits steps from live `item/completed` notifications for the active
+[`chat(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat) emits steps from live `item/completed` notifications for the active
 turn. It does not merge `thread/read` snapshot items into the same stream.
 
 ## Thread binding
 
-You can call APIs directly with `thread_id=...`, or use `ThreadHandle`:
+You can call APIs directly with `thread_id=...`, or use [`ThreadHandle`](api/client.md#codex_app_server_client.client.ThreadHandle):
 
 ```python
 thread = await client.start_thread()
@@ -41,4 +49,4 @@ result = await thread.chat_once("Hello")
 ## Per-turn metadata and overrides
 
 - `metadata` is applied on `turn/start`
-- `TurnOverrides` controls per-turn execution options (`cwd`, `model`, `effort`, etc.)
+- [`TurnOverrides`](api/models.md#codex_app_server_client.models.TurnOverrides) controls per-turn execution options (`cwd`, `model`, `effort`, etc.)

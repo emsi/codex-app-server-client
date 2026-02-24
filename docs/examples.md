@@ -2,6 +2,16 @@
 
 All examples live in `examples/`.
 
+## Related API
+
+- [`CodexClient`](api/client.md#codex_app_server_client.client.CodexClient)
+- [`ThreadHandle`](api/client.md#codex_app_server_client.client.ThreadHandle)
+- [`CodexClient.chat(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat)
+- [`CodexClient.chat_once(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat_once)
+- [`CodexClient.cancel(...)`](api/client.md#codex_app_server_client.client.CodexClient.cancel)
+- [`CodexClient.start_thread(...)`](api/client.md#codex_app_server_client.client.CodexClient.start_thread)
+- [`CodexClient.resume_thread(...)`](api/client.md#codex_app_server_client.client.CodexClient.resume_thread)
+
 ## `chat_steps_rich.py`
 
 Rich step-stream output with continuation/cancel flow.
@@ -33,7 +43,7 @@ uv run python examples/thread_resume_by_id.py --thread-id <existing-thread-id>
 
 ## `thread_concurrent_handles.py`
 
-Runs two fresh `ThreadHandle`s concurrently over one shared client connection.
+Runs two fresh [`ThreadHandle`](api/client.md#codex_app_server_client.client.ThreadHandle)s concurrently over one shared client connection.
 
 ```bash
 uv run python examples/thread_concurrent_handles.py --transport stdio

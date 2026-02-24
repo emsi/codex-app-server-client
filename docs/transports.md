@@ -1,13 +1,22 @@
 # Transports
 
+## Related API
+
+- [`CodexClient.connect_stdio(...)`](api/client.md#codex_app_server_client.client.CodexClient.connect_stdio)
+- [`CodexClient.connect_websocket(...)`](api/client.md#codex_app_server_client.client.CodexClient.connect_websocket)
+- [`CodexClient.start()`](api/client.md#codex_app_server_client.client.CodexClient.start)
+- [`CodexClient.close()`](api/client.md#codex_app_server_client.client.CodexClient.close)
+- [`StdioTransport`](api/transport.md#codex_app_server_client.transport.StdioTransport)
+- [`WebSocketTransport`](api/transport.md#codex_app_server_client.transport.WebSocketTransport)
+
 The client supports two transport implementations:
 
-- `StdioTransport`: line-delimited JSON over subprocess stdin/stdout
-- `WebSocketTransport`: JSON envelopes over websocket frames
+- [`StdioTransport`](api/transport.md#codex_app_server_client.transport.StdioTransport): line-delimited JSON over subprocess stdin/stdout
+- [`WebSocketTransport`](api/transport.md#codex_app_server_client.transport.WebSocketTransport): JSON envelopes over websocket frames
 
 ## Stdio transport
 
-Factory:
+Factory via [`CodexClient.connect_stdio(...)`](api/client.md#codex_app_server_client.client.CodexClient.connect_stdio):
 
 ```python
 CodexClient.connect_stdio(
@@ -24,7 +33,7 @@ Defaults:
 
 ## Websocket transport
 
-Factory:
+Factory via [`CodexClient.connect_websocket(...)`](api/client.md#codex_app_server_client.client.CodexClient.connect_websocket):
 
 ```python
 CodexClient.connect_websocket(
