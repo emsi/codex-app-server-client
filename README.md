@@ -178,7 +178,7 @@ uv run python examples/chat_session_websocket.py
 - `connect_stdio(...)`: create a stdio-configured client (unstarted).
 - `connect_websocket(...)`: create a websocket-configured client (unstarted).
 - `start()`: connect transport and start receive loop (idempotent).
-- `initialize(params=None, timeout=None)`: perform JSON-RPC initialize handshake.
+- `initialize(params=None, timeout=None)`: perform JSON-RPC initialize handshake with default-merged params (`protocolVersion`, `clientInfo`, `capabilities`) and return normalized `InitializeResult`.
 - `request(method, params=None, timeout=None)`: low-level JSON-RPC request helper.
 - `chat(text=None, thread_id=None, user=None, metadata=None, inactivity_timeout=None, continuation=None)`: async iterator yielding completed non-delta step blocks.
 - `chat_once(text=None, thread_id=None, user=None, metadata=None, inactivity_timeout=None, continuation=None)`: send one user message and wait for completed turn.
@@ -221,3 +221,88 @@ uv run python examples/chat_session_websocket.py
 - `initialize` currently sends `protocolVersion: "1"` as handshake metadata.
 - Websocket transport targets `websockets` (`>=16,<17`), uses `additional_headers`, and disables compression by default (`compression=None`) for codex app-server compatibility.
 - After dependency changes, run `uv sync` to refresh the virtual environment.
+
+
+## Initialize handshake (`initialize()`)
+
+`initialize()` performs the protocol handshake and returns `InitializeResult`.
+
+- `chat_once(...)` and `chat(...)` call `initialize()` automatically on first use.
+- call `initialize()` explicitly when you want to fail fast before first turn, inspect server metadata, or send custom init params.
+
+### Default initialize payload
+
+When `params=None`, the client sends:
+
+```json
+{
+  "protocolVersion": "1",
+  "clientInfo": {
+    "name": "codex-app-server-client",
+    "version": "0.1.0"
+  },
+  "capabilities": {
+    "optOutNotificationMethods": [
+      "codex/event/agent_message_content_delta",
+      "codex/event/reasoning_content_delta",
+      "codex/event/item_started",
+      "codex/event/item_completed",
+      "codex/event/task_started",
+      "codex/event/task_complete"
+    ]
+  }
+}
+```
+
+### Custom init params (`initialize(params=...)`)
+
+Supported/customizable keys:
+
+- `protocolVersion: str`
+- `clientInfo: dict` (commonly `name`, `version`, plus optional extra fields)
+- `capabilities: dict`
+- `capabilities.optOutNotificationMethods: list[str]`
+- any additional top-level keys are passed through unchanged
+
+Merge rules:
+
+- the payload starts from the default block above;
+- caller `params` are shallow-merged at top level;
+- if caller provides `capabilities` as a dict and omits `optOutNotificationMethods`, defaults are auto-injected;
+- if caller provides `capabilities.optOutNotificationMethods`, caller value is preserved;
+- if caller sets `capabilities` to `None` or a non-dict value, no injection is applied.
+
+### `InitializeResult` fields
+
+- `protocol_version`: extracted from `protocolVersion` or `protocol_version` in server result
+- `server_info`: extracted from `serverInfo` or `server_info`
+- `capabilities`: extracted from `capabilities`
+- `raw`: full raw initialize result payload
+
+### Example: explicit initialize
+
+```python
+import asyncio
+from codex_app_server_client import CodexClient
+
+
+async def main() -> None:
+    async with CodexClient.connect_stdio() as client:
+        init = await client.initialize(
+            {
+                "clientInfo": {
+                    "name": "my-client",
+                    "version": "0.3.0",
+                },
+                "capabilities": {
+                    "optOutNotificationMethods": [
+                        "codex/event/agent_message_content_delta"
+                    ]
+                },
+            }
+        )
+        print(init.protocol_version)
+
+
+asyncio.run(main())
+```
