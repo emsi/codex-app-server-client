@@ -4,10 +4,12 @@ High-level async Python client for `codex app-server`.
 
 It gives you a convenient conversation API over `stdio` or `websocket` without having to manage raw protocol events yourself.
 
+Documentation: https://emsi.github.io/codex-app-server-client/
+
 ## Highlights
 
-- simple one-shot turns with [`chat_once(...)`](docs/api/client.md#codex_app_server_client.client.CodexClient.chat_once)
-- step-streaming turns with [`chat(...)`](docs/api/client.md#codex_app_server_client.client.CodexClient.chat) (`thinking`, `exec`, `codex`, etc.), non-delta
+- simple one-shot turns with `chat_once(...)`
+- step-streaming turns with `chat(...)` (`thinking`, `exec`, `codex`, etc.), non-delta
 - built-in thread/turn lifecycle handling
 - thread-scoped config + forking via `ThreadHandle`
 - inactivity timeout continuation for long-running turns
@@ -16,26 +18,28 @@ It gives you a convenient conversation API over `stdio` or `websocket` without h
 
 ## Install
 
+Install `uv` (if needed):
+
 ```bash
-uv sync
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Install the package from PyPI:
+
+```bash
+uv add codex-app-server-sdk
+```
+
+Or pip-compatible install in the active environment:
+
+```bash
+uv pip install codex-app-server-sdk
 ```
 
 ## Documentation
 
-Full docs are built with Zensical (MkDocs-compatible) + mkdocstrings from source code
-docstrings, README guidance, and example workflows.
-
-- hosted site (GitHub Pages): `https://emsi.github.io/codex-app-server-client/`
-
-Local docs commands:
-
-```bash
-uv run zensical serve
-```
-
-```bash
-uv run zensical build
-```
+- Docs site: https://emsi.github.io/codex-app-server-client/
+- PyPI: https://pypi.org/project/codex-app-server-sdk/
 
 ## Quick start
 
@@ -389,8 +393,8 @@ uv run python examples/chat_session_websocket.py
 - `archive_thread(thread_id)` / `unarchive_thread(thread_id)`: archive lifecycle controls.
 - `rollback_thread(thread_id, num_turns=...)`: drop recent turns from thread history.
 - `compact_thread(thread_id)`: request context compaction.
-- [`chat(...)`](docs/api/client.md#codex_app_server_client.client.CodexClient.chat) (`text=None, thread_id=None, user=None, metadata=None, thread_config=None, turn_overrides=None, inactivity_timeout=None, continuation=None`): async iterator yielding completed non-delta step blocks.
-- [`chat_once(...)`](docs/api/client.md#codex_app_server_client.client.CodexClient.chat_once) (`text=None, thread_id=None, user=None, metadata=None, thread_config=None, turn_overrides=None, inactivity_timeout=None, continuation=None`): send one user message and wait for completed turn.
+- `chat(...)` (`text=None, thread_id=None, user=None, metadata=None, thread_config=None, turn_overrides=None, inactivity_timeout=None, continuation=None`): async iterator yielding completed non-delta step blocks.
+- `chat_once(...)` (`text=None, thread_id=None, user=None, metadata=None, thread_config=None, turn_overrides=None, inactivity_timeout=None, continuation=None`): send one user message and wait for completed turn.
 - `cancel(continuation, timeout=None)`: interrupt running turn, return unread steps/events, and clean turn state.
 - `steer_turn(thread_id=..., expected_turn_id=..., input_items=...)`: steer active turn input.
 - `start_review(thread_id=..., target=..., delivery=None)`: run review mode.
@@ -409,7 +413,7 @@ uv run python examples/chat_session_websocket.py
 ### Data models (`src/codex_app_server_client/models.py`)
 
 - `InitializeResult`: parsed initialize response (`protocol_version`, `server_info`, `capabilities`, `raw`).
-- `ConversationStep`: completed step from [`chat(...)`](docs/api/client.md#codex_app_server_client.client.CodexClient.chat) (`step_type`, `item_type`, `text`, `item_id`, `thread_id`, `turn_id`, `data`).
+- `ConversationStep`: completed step from `chat(...)` (`step_type`, `item_type`, `text`, `item_id`, `thread_id`, `turn_id`, `data`).
 - `ChatResult`: buffered turn output (`thread_id`, `turn_id`, `final_text`, `raw_events`, `assistant_item_id`, `completion_source`).
 - `ChatContinuation`: continuation token for timed-out running turns (`thread_id`, `turn_id`, `cursor`, `mode`).
 - `CancelResult`: cancellation result with unread `steps`/`raw_events` plus terminal flags.
@@ -422,8 +426,8 @@ uv run python examples/chat_session_websocket.py
 
 - `thread_id`: bound thread id.
 - `defaults`: local thread config snapshot.
-- [`chat_once(...)`](docs/api/client.md#codex_app_server_client.client.ThreadHandle.chat_once): convenience one-turn call bound to this thread.
-- [`chat(...)`](docs/api/client.md#codex_app_server_client.client.ThreadHandle.chat): step-streaming call bound to this thread.
+- `chat_once(...)`: convenience one-turn call bound to this thread.
+- `chat(...)`: step-streaming call bound to this thread.
 - `update_defaults(overrides)`: apply thread defaults between messages.
 - `fork(overrides=None)`: fork thread and get a new handle.
 - `read(include_turns=True)`: low-level thread/read helper.
@@ -441,9 +445,9 @@ uv run python examples/chat_session_websocket.py
 ## Behavior notes
 
 - This version does not expose token-delta streaming as a public API.
-- [`chat(...)`](docs/api/client.md#codex_app_server_client.client.CodexClient.chat) provides async streaming of completed step blocks (non-delta) from live `item/completed` notifications only.
-- [`chat(...)`](docs/api/client.md#codex_app_server_client.client.CodexClient.chat) intentionally does not merge `thread/read` snapshot items for the same turn, avoiding duplicate blocks when snapshot item IDs differ from live event item IDs.
-- [`chat_once(...)`](docs/api/client.md#codex_app_server_client.client.CodexClient.chat_once) resolves final text from completed `agentMessage` items (`item/completed`), with `thread/read(includeTurns=true)` fallback.
+- `chat(...)` provides async streaming of completed step blocks (non-delta) from live `item/completed` notifications only.
+- `chat(...)` intentionally does not merge `thread/read` snapshot items for the same turn, avoiding duplicate blocks when snapshot item IDs differ from live event item IDs.
+- `chat_once(...)` resolves final text from completed `agentMessage` items (`item/completed`), with `thread/read(includeTurns=true)` fallback.
 - `turn_timeout` is intentionally removed to avoid conflicting timeout semantics.
 - Turn waits are controlled by `inactivity_timeout` (or unbounded when `None`).
 - `cancel(...)` interrupts a continuation turn, returns unread buffered data, and cleans internal session state so the same thread can be reused safely.
@@ -460,7 +464,7 @@ uv run python examples/chat_session_websocket.py
 
 `initialize()` performs the protocol handshake and returns `InitializeResult`.
 
-- [`chat_once(...)`](docs/api/client.md#codex_app_server_client.client.CodexClient.chat_once) and [`chat(...)`](docs/api/client.md#codex_app_server_client.client.CodexClient.chat) call `initialize()` automatically on first use.
+- `chat_once(...)` and `chat(...)` call `initialize()` automatically on first use.
 - call `initialize()` explicitly when you want to fail fast before first turn, inspect server metadata, or send custom init params.
 
 ### Default initialize payload

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail if plain-text `chat_once(...)` / `chat(...)` mentions are not links."""
+"""Fail if plain-text `chat_once(...)` / `chat(...)` mentions in docs are not links."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FILES = [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]
+FILES = [*sorted((ROOT / "docs").rglob("*.md"))]
 
 MENTIONS = (
     (
