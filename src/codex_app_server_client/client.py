@@ -760,6 +760,9 @@ class CodexClient:
     ) -> AsyncIterator[ConversationStep]:
         """Stream completed, non-delta conversation steps for one turn.
 
+        Step emission is live-notification based (`item/completed`) and does
+        not backfill from `thread/read` snapshots for the same turn.
+
         On inactivity timeout this raises `CodexTurnInactiveError` with a
         continuation token; call `chat(continuation=...)` to resume the same turn.
         """
@@ -775,11 +778,10 @@ class CodexClient:
                 expected_mode="stream",
             )
             cursor = max(0, continuation.cursor)
-            active_thread_id = session.thread_id
         else:
             if text is None:
                 raise ValueError("text is required when continuation is not provided")
-            active_thread_id, session = await self._start_chat_turn(
+            _, session = await self._start_chat_turn(
                 text=text,
                 thread_id=thread_id,
                 user=user,
@@ -803,16 +805,6 @@ class CodexClient:
                 raise CodexProtocolError(session.failure_message or "turn failed")
 
             if session.completed:
-                for fallback_step in await self._read_turn_steps(
-                    thread_id=active_thread_id,
-                    turn_id=session.turn_id,
-                ):
-                    if fallback_step.item_id is None:
-                        continue
-                    if fallback_step.item_id in session.step_item_ids:
-                        continue
-                    session.step_item_ids.add(fallback_step.item_id)
-                    yield fallback_step
                 self._cleanup_turn_state(session.turn_id)
                 return
 
