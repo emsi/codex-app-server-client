@@ -35,16 +35,19 @@ markdown_extensions:
   - def_list
   - attr_list
 nav:
-  - Home: index.md
-  - Getting started: getting-started.md
-  - Transports: transports.md
-  - Conversation APIs: conversation.md
-  - Timeouts, continuation, cancel: timeouts-continuation-cancel.md
-  - Threads and configuration: threads-and-config.md
-  - Examples: examples.md
-  - Protocol mapping: protocol-mapping.md
-  - Behavior guarantees: behavior-guarantees.md
-  - API reference:
+  - Home:
+      - Overview: index.md
+      - Getting started: getting-started.md
+  - Recipes:
+      - Overview: recipes/index.md
+      - Conversation APIs: conversation.md
+      - Transports: transports.md
+      - Timeouts, continuation, cancel: timeouts-continuation-cancel.md
+      - Threads and configuration: threads-and-config.md
+      - Examples: examples.md
+      - Protocol mapping: protocol-mapping.md
+      - Behavior guarantees: behavior-guarantees.md
+  - API:
       - Overview: api/index.md
       - Package exports: api/package.md
       - client: api/client.md
