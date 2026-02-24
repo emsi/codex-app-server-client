@@ -87,6 +87,15 @@ async def main() -> None:
                 break
             except CodexTurnInactiveError as exc:
                 continuation = exc.continuation
+                idle = (
+                    f"{exc.idle_seconds:.1f}s"
+                    if exc.idle_seconds is not None
+                    else "unknown"
+                )
+                print(
+                    f"[warn] turn inactive for {idle}; resuming "
+                    f"(thread_id={continuation.thread_id}, turn_id={continuation.turn_id})"
+                )
 
 
 asyncio.run(main())
@@ -115,7 +124,7 @@ async def main() -> None:
         result = await thread.chat_once("Summarize the repo layout.")
         print(result.final_text)
 
-        await thread.update_defaults(ThreadConfig(model="gpt-5-mini"))
+        await thread.update_defaults(ThreadConfig(model="gpt-5.1-codex-mini"))
         forked = await thread.fork(
             overrides=ThreadConfig(
                 developer_instructions="Focus on tests first.",
@@ -132,9 +141,39 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+### Configuration scopes and semantics
+
+- `CodexClient`: connection/session scope (transport, request routing, lifecycle).
+- `ThreadHandle` + `ThreadConfig`: thread scope (`cwd`, `baseInstructions`, `developerInstructions`, `model`, etc.).
+- `TurnOverrides`: per-turn scope (`cwd`, `model`, `effort`, `summary`, ...).
+
+#### `UNSET` vs `None`
+
+- `UNSET` (default): omit field from request payload; keep server default/current value.
+- `None`: send JSON `null` explicitly (where protocol allows) to reset/clear.
+
+Example:
+
+```python
+from codex_app_server_client import ThreadConfig, UNSET
+
+cfg = ThreadConfig(
+    model=UNSET,  # omit key
+    developer_instructions=None,  # send explicit null
+)
+```
+
+#### Continuation constraints
+
+When resuming with `continuation=...`, you cannot also pass `thread_config` or `turn_overrides` in that same call.
+Apply thread changes via `thread.update_defaults(...)` or start a new/forked thread before continuing with a new turn.
+
 ## Example clients
 
 More complete examples are under `examples/`.
+
+All `thread_*` examples print lifecycle progress checkpoints by default so long operations are visible.
+Use `--quiet` on those scripts for minimal output.
 
 ### Rich step-stream example (thinking/exec/codex blocks)
 
@@ -179,9 +218,85 @@ Common options:
 
 ```bash
 uv run python examples/thread_config_and_fork.py \
+  --transport stdio \
   --cwd . \
   --base-instructions "Be concise." \
   --developer-instructions "Prioritize correctness."
+```
+
+Websocket:
+
+```bash
+uv run python examples/thread_config_and_fork.py \
+  --transport websocket \
+  --url ws://127.0.0.1:8765
+```
+
+Quiet mode:
+
+```bash
+uv run python examples/thread_config_and_fork.py --quiet
+```
+
+### Resume-by-id example
+
+```bash
+uv run python examples/thread_resume_by_id.py \
+  --transport stdio \
+  --thread-id <existing-thread-id> \
+  --prompt "Continue the previous conversation."
+```
+
+Quiet mode:
+
+```bash
+uv run python examples/thread_resume_by_id.py --thread-id <existing-thread-id> --quiet
+```
+
+### Concurrent thread handles example
+
+```bash
+uv run python examples/thread_concurrent_handles.py --transport stdio
+```
+
+Quiet mode:
+
+```bash
+uv run python examples/thread_concurrent_handles.py --quiet
+```
+
+### Thread/model/config ops showcase
+
+This example uses the newly exposed helper APIs:
+- `thread/read`, `thread/list`, `thread/name/set`, `thread/archive`
+- `model/list`
+- `config/read`
+
+```bash
+uv run python examples/thread_ops_showcase.py \
+  --transport stdio \
+  --prompt "Give a 3-bullet summary." \
+  --thread-name "showcase-thread"
+```
+
+Websocket:
+
+```bash
+uv run python examples/thread_ops_showcase.py \
+  --transport websocket \
+  --url ws://127.0.0.1:8765
+```
+
+With raw payload dumps:
+
+```bash
+uv run python examples/thread_ops_showcase.py --show-data
+```
+
+Quiet mode:
+
+```bash
+uv run python examples/thread_ops_showcase.py --quiet
 ```
 
 ### Stdio example (multi-turn, one thread)
@@ -234,9 +349,20 @@ uv run python examples/chat_session_websocket.py
 - `resume_thread(thread_id, overrides=None)`: resume thread and return `ThreadHandle`.
 - `fork_thread(thread_id, overrides=None)`: fork thread and return `ThreadHandle`.
 - `set_thread_defaults(thread_id, overrides)`: apply thread-level overrides via `thread/resume`.
+- `read_thread(thread_id, include_turns=True)`: read one thread.
+- `list_threads(...)`: list threads with optional filters.
+- `set_thread_name(thread_id, name)`: rename thread.
+- `archive_thread(thread_id)` / `unarchive_thread(thread_id)`: archive lifecycle controls.
+- `rollback_thread(thread_id, num_turns=...)`: drop recent turns from thread history.
+- `compact_thread(thread_id)`: request context compaction.
 - `chat(text=None, thread_id=None, user=None, metadata=None, thread_config=None, turn_overrides=None, inactivity_timeout=None, continuation=None)`: async iterator yielding completed non-delta step blocks.
 - `chat_once(text=None, thread_id=None, user=None, metadata=None, thread_config=None, turn_overrides=None, inactivity_timeout=None, continuation=None)`: send one user message and wait for completed turn.
 - `cancel(continuation, timeout=None)`: interrupt running turn, return unread steps/events, and clean turn state.
+- `steer_turn(thread_id=..., expected_turn_id=..., input_items=...)`: steer active turn input.
+- `start_review(thread_id=..., target=..., delivery=None)`: run review mode.
+- `list_models(...)`: discover available models.
+- `exec_command(command, ...)`: run one command via server command API.
+- `read_config(...)`, `read_config_requirements()`, `write_config_value(...)`, `batch_write_config(...)`: config APIs.
 - `interrupt_turn(turn_id, timeout=None)`: low-level turn interruption request.
 - `close()`: cancel receive loop and close transport.
 
@@ -256,6 +382,7 @@ uv run python examples/chat_session_websocket.py
 - `ThreadConfig`: thread-level config for `thread/start`, `thread/resume`, `thread/fork` (`cwd`, `base_instructions`, `developer_instructions`, `model`, ...).
 - `TurnOverrides`: per-turn overrides forwarded to `turn/start` (`cwd`, `model`, `effort`, ...).
 - `UNSET`: sentinel for “omit this field from request payload.”
+- `ApprovalPolicy`: literal type for approval policy values (`untrusted`, `on-failure`, `on-request`, `never`).
 
 ### `ThreadHandle` (`src/codex_app_server_client/client.py`)
 
@@ -266,6 +393,8 @@ uv run python examples/chat_session_websocket.py
 - `update_defaults(overrides)`: apply thread defaults between messages.
 - `fork(overrides=None)`: fork thread and get a new handle.
 - `read(include_turns=True)`: low-level thread/read helper.
+- `set_name(name)`, `archive()`, `unarchive()`, `rollback(num_turns)`, `compact()`: thread lifecycle/history helpers.
+- `start_review(target, delivery=None)`: thread-bound review API.
 
 ### Exceptions (`src/codex_app_server_client/errors.py`)
 
@@ -284,6 +413,7 @@ uv run python examples/chat_session_websocket.py
 - Turn waits are controlled by `inactivity_timeout` (or unbounded when `None`).
 - `cancel(...)` interrupts a continuation turn, returns unread buffered data, and cleans internal session state so the same thread can be reused safely.
 - Advanced thread-level config/fork uses protocol v2 methods (`thread/start`, `thread/resume`, `thread/fork`) exposed via `ThreadHandle` and `ThreadConfig`.
+- `metadata` is applied on `turn/start` payloads for message turns; thread-level config uses schema-aligned fields on thread methods.
 - preferred lifecycle is `async with CodexClient.connect_*() as client:`; manual `start()/close()` remains available for advanced control.
 - The client uses modern thread/turn methods (`thread/start`, `thread/resume`, `turn/start`, `turn/interrupt`).
 - `initialize` currently sends `protocolVersion: "1"` as handshake metadata.

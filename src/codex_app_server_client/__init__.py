@@ -7,6 +7,7 @@ from .errors import (
     CodexTurnInactiveError,
 )
 from .models import (
+    ApprovalPolicy,
     CancelResult,
     ChatContinuation,
     ChatResult,
@@ -21,6 +22,7 @@ from .models import (
 
 __all__ = [
     "CancelResult",
+    "ApprovalPolicy",
     "ChatContinuation",
     "ChatResult",
     "CodexClient",

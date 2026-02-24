@@ -25,14 +25,28 @@ from .models import (
     UnsetType,
 )
 from .protocol import (
+    COMMAND_EXEC_METHOD,
+    CONFIG_BATCH_WRITE_METHOD,
+    CONFIG_READ_METHOD,
+    CONFIG_REQUIREMENTS_READ_METHOD,
+    CONFIG_VALUE_WRITE_METHOD,
     DEFAULT_OPT_OUT_NOTIFICATION_METHODS,
     INITIALIZE_METHOD,
     ITEM_COMPLETED_METHOD,
+    MODEL_LIST_METHOD,
+    REVIEW_START_METHOD,
+    THREAD_ARCHIVE_METHOD,
+    THREAD_COMPACT_START_METHOD,
     THREAD_FORK_METHOD,
+    THREAD_LIST_METHOD,
+    THREAD_NAME_SET_METHOD,
     THREAD_READ_METHOD,
+    THREAD_ROLLBACK_METHOD,
     THREAD_RESUME_METHOD,
     THREAD_START_METHOD,
+    THREAD_UNARCHIVE_METHOD,
     TURN_INTERRUPT_METHOD,
+    TURN_STEER_METHOD,
     TURN_START_METHOD,
     extract_error,
     is_response_message,
@@ -144,9 +158,39 @@ class ThreadHandle:
 
     async def read(self, *, include_turns: bool = True) -> Any:
         """Read server-side thread state."""
-        return await self._client.request(
-            THREAD_READ_METHOD,
-            {"threadId": self._thread_id, "includeTurns": include_turns},
+        return await self._client.read_thread(self._thread_id, include_turns=include_turns)
+
+    async def set_name(self, name: str) -> None:
+        """Set user-facing thread name."""
+        await self._client.set_thread_name(self._thread_id, name)
+
+    async def archive(self) -> None:
+        """Archive this thread."""
+        await self._client.archive_thread(self._thread_id)
+
+    async def unarchive(self) -> None:
+        """Unarchive this thread."""
+        await self._client.unarchive_thread(self._thread_id)
+
+    async def compact(self) -> Any:
+        """Start compaction for this thread."""
+        return await self._client.compact_thread(self._thread_id)
+
+    async def rollback(self, num_turns: int) -> Any:
+        """Rollback the last `num_turns` turns for this thread."""
+        return await self._client.rollback_thread(self._thread_id, num_turns=num_turns)
+
+    async def start_review(
+        self,
+        target: Mapping[str, Any],
+        *,
+        delivery: Literal["inline", "detached"] | None = None,
+    ) -> Any:
+        """Start review mode against this thread."""
+        return await self._client.start_review(
+            thread_id=self._thread_id,
+            target=target,
+            delivery=delivery,
         )
 
 
@@ -427,6 +471,183 @@ class CodexClient:
         params: dict[str, Any] = {"threadId": thread_id}
         params.update(_thread_config_to_params(overrides))
         await self.request(THREAD_RESUME_METHOD, params)
+
+    async def read_thread(self, thread_id: str, *, include_turns: bool = True) -> Any:
+        """Read server-side thread state."""
+        return await self.request(
+            THREAD_READ_METHOD,
+            {"threadId": thread_id, "includeTurns": include_turns},
+        )
+
+    async def list_threads(
+        self,
+        *,
+        archived: bool | None = None,
+        cursor: str | None = None,
+        cwd: str | None = None,
+        limit: int | None = None,
+        model_providers: Sequence[str] | None = None,
+        sort_key: Literal["created_at", "updated_at"] | None = None,
+        sort_direction: Literal["asc", "desc"] | None = None,
+    ) -> Any:
+        """List server threads with optional filters."""
+        params = _filter_none(
+            {
+                "archived": archived,
+                "cursor": cursor,
+                "cwd": cwd,
+                "limit": limit,
+                "modelProviders": list(model_providers)
+                if model_providers is not None
+                else None,
+                "sortKey": sort_key,
+                "sortDirection": sort_direction,
+            }
+        )
+        return await self.request(THREAD_LIST_METHOD, params)
+
+    async def set_thread_name(self, thread_id: str, name: str) -> None:
+        """Set user-facing thread name."""
+        await self.request(THREAD_NAME_SET_METHOD, {"threadId": thread_id, "name": name})
+
+    async def archive_thread(self, thread_id: str) -> None:
+        """Archive thread."""
+        await self.request(THREAD_ARCHIVE_METHOD, {"threadId": thread_id})
+
+    async def unarchive_thread(self, thread_id: str) -> None:
+        """Unarchive thread."""
+        await self.request(THREAD_UNARCHIVE_METHOD, {"threadId": thread_id})
+
+    async def compact_thread(self, thread_id: str) -> Any:
+        """Start compaction for thread history."""
+        return await self.request(THREAD_COMPACT_START_METHOD, {"threadId": thread_id})
+
+    async def rollback_thread(self, thread_id: str, *, num_turns: int) -> Any:
+        """Drop the last `num_turns` turns from thread history."""
+        return await self.request(
+            THREAD_ROLLBACK_METHOD,
+            {"threadId": thread_id, "numTurns": num_turns},
+        )
+
+    async def list_models(
+        self,
+        *,
+        cursor: str | None = None,
+        include_hidden: bool | None = None,
+        limit: int | None = None,
+    ) -> Any:
+        """List available models."""
+        params = _filter_none(
+            {
+                "cursor": cursor,
+                "includeHidden": include_hidden,
+                "limit": limit,
+            }
+        )
+        return await self.request(MODEL_LIST_METHOD, params)
+
+    async def steer_turn(
+        self,
+        *,
+        thread_id: str,
+        expected_turn_id: str,
+        input_items: Sequence[Mapping[str, Any]],
+    ) -> Any:
+        """Steer an active turn with additional user input."""
+        return await self.request(
+            TURN_STEER_METHOD,
+            {
+                "threadId": thread_id,
+                "expectedTurnId": expected_turn_id,
+                "input": [dict(item) for item in input_items],
+            },
+        )
+
+    async def start_review(
+        self,
+        *,
+        thread_id: str,
+        target: Mapping[str, Any],
+        delivery: Literal["inline", "detached"] | None = None,
+    ) -> Any:
+        """Start review mode for a thread."""
+        params = {
+            "threadId": thread_id,
+            "target": dict(target),
+        }
+        if delivery is not None:
+            params["delivery"] = delivery
+        return await self.request(REVIEW_START_METHOD, params)
+
+    async def exec_command(
+        self,
+        command: Sequence[str],
+        *,
+        cwd: str | None = None,
+        sandbox_policy: Mapping[str, Any] | None = None,
+        timeout_ms: int | None = None,
+    ) -> Any:
+        """Execute one command via `command/exec`."""
+        params: dict[str, Any] = {"command": list(command)}
+        if cwd is not None:
+            params["cwd"] = cwd
+        if sandbox_policy is not None:
+            params["sandboxPolicy"] = dict(sandbox_policy)
+        if timeout_ms is not None:
+            params["timeoutMs"] = timeout_ms
+        return await self.request(COMMAND_EXEC_METHOD, params)
+
+    async def read_config(
+        self,
+        *,
+        cwd: str | None = None,
+        include_layers: bool = False,
+    ) -> Any:
+        """Read effective config and optional config layers."""
+        params: dict[str, Any] = {"includeLayers": include_layers}
+        if cwd is not None:
+            params["cwd"] = cwd
+        return await self.request(CONFIG_READ_METHOD, params)
+
+    async def read_config_requirements(self) -> Any:
+        """Read config requirements/constraints."""
+        return await self.request(CONFIG_REQUIREMENTS_READ_METHOD)
+
+    async def write_config_value(
+        self,
+        *,
+        key_path: str,
+        value: Any,
+        merge_strategy: Literal["replace", "upsert"] = "upsert",
+        expected_version: str | None = None,
+        file_path: str | None = None,
+    ) -> Any:
+        """Write one config key path."""
+        params: dict[str, Any] = {
+            "keyPath": key_path,
+            "mergeStrategy": merge_strategy,
+            "value": value,
+        }
+        if expected_version is not None:
+            params["expectedVersion"] = expected_version
+        if file_path is not None:
+            params["filePath"] = file_path
+        return await self.request(CONFIG_VALUE_WRITE_METHOD, params)
+
+    async def batch_write_config(
+        self,
+        edits: Sequence[Mapping[str, Any]],
+        *,
+        expected_version: str | None = None,
+        file_path: str | None = None,
+    ) -> Any:
+        """Write multiple config edits atomically."""
+        params: dict[str, Any] = {"edits": [dict(edit) for edit in edits]}
+        if expected_version is not None:
+            params["expectedVersion"] = expected_version
+        if file_path is not None:
+            params["filePath"] = file_path
+        return await self.request(CONFIG_BATCH_WRITE_METHOD, params)
 
     async def chat_once(
         self,
@@ -775,7 +996,6 @@ class CodexClient:
 
         active_thread_id = await self._prepare_thread_context(
             thread_id=thread_id,
-            metadata=metadata,
             thread_config=thread_config,
         )
 
@@ -802,14 +1022,11 @@ class CodexClient:
         self,
         *,
         thread_id: str | None,
-        metadata: Mapping[str, Any] | None,
         thread_config: ThreadConfig | None,
     ) -> str:
         """Start or resume a thread and return the active thread id."""
         if thread_id is None:
             thread_params = _thread_config_to_params(thread_config)
-            if metadata:
-                thread_params["metadata"] = dict(metadata)
             thread_result = await self.request(THREAD_START_METHOD, thread_params)
             active_thread_id = _extract_thread_id(thread_result)
             if not active_thread_id:
@@ -1184,6 +1401,11 @@ def _merge_thread_config(base: ThreadConfig, override: ThreadConfig | None) -> T
         ephemeral=pick(base.ephemeral, override.ephemeral),
         config=pick(base.config, override.config),
     )
+
+
+def _filter_none(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Return dict without keys whose values are None."""
+    return {key: value for key, value in values.items() if value is not None}
 
 
 def _default_stdio_command() -> list[str]:

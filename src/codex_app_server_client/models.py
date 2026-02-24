@@ -112,6 +112,7 @@ class UnsetType:
 
 
 UNSET = UnsetType()
+ApprovalPolicy = Literal["untrusted", "on-failure", "on-request", "never"]
 ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
 ReasoningSummary = Literal["auto", "concise", "detailed", "none"]
 
@@ -129,7 +130,7 @@ class ThreadConfig:
     developer_instructions: str | None | UnsetType = UNSET
     model: str | None | UnsetType = UNSET
     model_provider: str | None | UnsetType = UNSET
-    approval_policy: str | None | UnsetType = UNSET
+    approval_policy: ApprovalPolicy | None | UnsetType = UNSET
     sandbox: str | None | UnsetType = UNSET
     personality: str | None | UnsetType = UNSET
     ephemeral: bool | None | UnsetType = UNSET
@@ -150,5 +151,5 @@ class TurnOverrides:
     summary: ReasoningSummary | None | UnsetType = UNSET
     sandbox_policy: dict[str, Any] | None | UnsetType = UNSET
     personality: str | None | UnsetType = UNSET
-    approval_policy: str | None | UnsetType = UNSET
+    approval_policy: ApprovalPolicy | None | UnsetType = UNSET
     output_schema: dict[str, Any] | None | UnsetType = UNSET
