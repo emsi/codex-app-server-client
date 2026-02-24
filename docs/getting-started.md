@@ -48,7 +48,7 @@ asyncio.run(main())
 
 ## Explicit initialize handshake
 
-`chat_once(...)` and `chat(...)` initialize automatically, but you can initialize
+[`chat_once(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat_once) and [`chat(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat) initialize automatically, but you can initialize
 early to fail fast or inspect server metadata.
 
 ```python

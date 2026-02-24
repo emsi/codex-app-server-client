@@ -113,7 +113,29 @@ class ThreadHandle:
         continuation: ChatContinuation | None = None,
         turn_overrides: TurnOverrides | None = None,
     ) -> ChatResult:
-        """Send one message on this thread and return final assistant output."""
+        """Send one message on this bound thread and return the final assistant output.
+
+        Args:
+            text: User text for a new turn. Must be omitted when resuming with
+                `continuation`.
+            user: Optional user label forwarded on `turn/start`.
+            metadata: Optional per-turn metadata forwarded on `turn/start`.
+            inactivity_timeout: Optional per-call inactivity timeout override.
+                `None` uses the client-level inactivity timeout policy.
+            continuation: Continuation token from `CodexTurnInactiveError` for
+                resuming the same running turn.
+            turn_overrides: Optional per-turn override payload for `turn/start`.
+
+        Returns:
+            Buffered final turn result for this thread.
+
+        Raises:
+            ValueError: If continuation constraints are violated.
+            CodexTurnInactiveError: If the turn remains inactive longer than the
+                resolved inactivity timeout.
+            CodexProtocolError: If protocol/server reports turn failure.
+            CodexTransportError: If transport fails while waiting for turn events.
+        """
         return await self._client.chat_once(
             text,
             thread_id=self._thread_id,
@@ -134,7 +156,29 @@ class ThreadHandle:
         continuation: ChatContinuation | None = None,
         turn_overrides: TurnOverrides | None = None,
     ) -> AsyncIterator[ConversationStep]:
-        """Stream completed, non-delta steps for one message on this thread."""
+        """Stream completed, non-delta steps for one message on this bound thread.
+
+        Args:
+            text: User text for a new turn. Must be omitted when resuming with
+                `continuation`.
+            user: Optional user label forwarded on `turn/start`.
+            metadata: Optional per-turn metadata forwarded on `turn/start`.
+            inactivity_timeout: Optional per-call inactivity timeout override.
+                `None` uses the client-level inactivity timeout policy.
+            continuation: Continuation token from `CodexTurnInactiveError` for
+                resuming the same running turn.
+            turn_overrides: Optional per-turn override payload for `turn/start`.
+
+        Yields:
+            Completed conversation step blocks as they arrive.
+
+        Raises:
+            ValueError: If continuation constraints are violated.
+            CodexTurnInactiveError: If the turn remains inactive longer than the
+                resolved inactivity timeout.
+            CodexProtocolError: If protocol/server reports turn failure.
+            CodexTransportError: If transport fails while waiting for turn events.
+        """
         async for step in self._client.chat(
             text,
             thread_id=self._thread_id,
@@ -147,37 +191,70 @@ class ThreadHandle:
             yield step
 
     async def fork(self, *, overrides: ThreadConfig | None = None) -> ThreadHandle:
-        """Fork this thread into a new thread handle."""
+        """Fork this thread into a new thread handle.
+
+        Args:
+            overrides: Optional thread-level overrides applied to the forked thread.
+
+        Returns:
+            New `ThreadHandle` bound to the forked thread id.
+        """
         merged = _merge_thread_config(self._defaults, overrides)
         return await self._client.fork_thread(self._thread_id, overrides=merged)
 
     async def update_defaults(self, overrides: ThreadConfig) -> None:
-        """Apply thread-level overrides and update local defaults snapshot."""
+        """Apply thread-level defaults and update this handle's local snapshot.
+
+        Args:
+            overrides: Thread-level fields to apply via `thread/resume`.
+        """
         await self._client.set_thread_defaults(self._thread_id, overrides)
         self._defaults = _merge_thread_config(self._defaults, overrides)
 
     async def read(self, *, include_turns: bool = True) -> Any:
-        """Read server-side thread state."""
+        """Read server-side thread state for this handle's thread.
+
+        Args:
+            include_turns: Whether response should include turn history.
+
+        Returns:
+            Raw `thread/read` response payload.
+        """
         return await self._client.read_thread(self._thread_id, include_turns=include_turns)
 
     async def set_name(self, name: str) -> None:
-        """Set user-facing thread name."""
+        """Set user-facing name for this thread.
+
+        Args:
+            name: Thread display name.
+        """
         await self._client.set_thread_name(self._thread_id, name)
 
     async def archive(self) -> None:
-        """Archive this thread."""
+        """Archive this thread via `thread/archive`."""
         await self._client.archive_thread(self._thread_id)
 
     async def unarchive(self) -> None:
-        """Unarchive this thread."""
+        """Unarchive this thread via `thread/unarchive`."""
         await self._client.unarchive_thread(self._thread_id)
 
     async def compact(self) -> Any:
-        """Start compaction for this thread."""
+        """Start context compaction for this thread.
+
+        Returns:
+            Raw `thread/compact/start` response payload.
+        """
         return await self._client.compact_thread(self._thread_id)
 
     async def rollback(self, num_turns: int) -> Any:
-        """Rollback the last `num_turns` turns for this thread."""
+        """Rollback the last turns for this thread.
+
+        Args:
+            num_turns: Number of most recent turns to drop.
+
+        Returns:
+            Raw `thread/rollback` response payload.
+        """
         return await self._client.rollback_thread(self._thread_id, num_turns=num_turns)
 
     async def start_review(
@@ -186,7 +263,15 @@ class ThreadHandle:
         *,
         delivery: Literal["inline", "detached"] | None = None,
     ) -> Any:
-        """Start review mode against this thread."""
+        """Start review mode against this thread.
+
+        Args:
+            target: Review target payload accepted by `review/start`.
+            delivery: Optional review delivery mode.
+
+        Returns:
+            Raw `review/start` response payload.
+        """
         return await self._client.start_review(
             thread_id=self._thread_id,
             target=target,
@@ -243,7 +328,22 @@ class CodexClient:
         inactivity_timeout: float | None = 180.0,
         strict: bool = False,
     ) -> CodexClient:
-        """Create an unstarted client configured for stdio transport."""
+        """Create an unstarted client configured for stdio transport.
+
+        Args:
+            command: Optional command argv. Defaults to `CODEX_APP_SERVER_CMD`
+                or `["codex", "app-server"]`.
+            cwd: Optional subprocess working directory.
+            env: Optional subprocess environment overrides.
+            connect_timeout: Subprocess spawn timeout in seconds.
+            request_timeout: Default request/response timeout in seconds.
+            inactivity_timeout: Default turn inactivity timeout in seconds.
+                If `None`, turn waits are unbounded by inactivity.
+            strict: Enable strict protocol behavior for ambiguous cases.
+
+        Returns:
+            Unstarted `CodexClient` using `StdioTransport`.
+        """
         resolved_command = list(command) if command is not None else _default_stdio_command()
         transport = StdioTransport(
             resolved_command,
@@ -271,7 +371,22 @@ class CodexClient:
         inactivity_timeout: float | None = 180.0,
         strict: bool = False,
     ) -> CodexClient:
-        """Create an unstarted client configured for websocket transport."""
+        """Create an unstarted client configured for websocket transport.
+
+        Args:
+            url: Optional websocket URL. Defaults to `CODEX_APP_SERVER_WS_URL`
+                or `ws://127.0.0.1:8765`.
+            token: Optional bearer token. Defaults to `CODEX_APP_SERVER_TOKEN`.
+            headers: Optional extra websocket headers.
+            connect_timeout: Websocket handshake timeout in seconds.
+            request_timeout: Default request/response timeout in seconds.
+            inactivity_timeout: Default turn inactivity timeout in seconds.
+                If `None`, turn waits are unbounded by inactivity.
+            strict: Enable strict protocol behavior for ambiguous cases.
+
+        Returns:
+            Unstarted `CodexClient` using `WebSocketTransport`.
+        """
         resolved_url = url or os.getenv("CODEX_APP_SERVER_WS_URL") or "ws://127.0.0.1:8765"
         resolved_token = token or os.getenv("CODEX_APP_SERVER_TOKEN")
         resolved_headers = dict(headers) if headers is not None else {}
@@ -292,7 +407,14 @@ class CodexClient:
         return client
 
     async def start(self) -> CodexClient:
-        """Connect transport and start background receive loop once."""
+        """Connect transport and start the background receiver loop.
+
+        Returns:
+            `self` for fluent usage.
+
+        Raises:
+            CodexTransportError: If client is closed or transport connection fails.
+        """
         if self._closed:
             raise CodexTransportError("client is closed")
         if self._started:
@@ -311,7 +433,7 @@ class CodexClient:
         await self.close()
 
     async def close(self) -> None:
-        """Stop receive loop, fail pending requests, and close transport."""
+        """Stop receiver, fail pending requests, clear turn state, and close transport."""
         if self._closed:
             return
         self._closed = True
@@ -376,7 +498,22 @@ class CodexClient:
         *,
         timeout: float | None = None,
     ) -> Any:
-        """Send a JSON-RPC request and await response result."""
+        """Send one JSON-RPC request and return its `result`.
+
+        Args:
+            method: JSON-RPC method name.
+            params: Optional request parameters.
+            timeout: Optional per-call timeout override in seconds. If omitted,
+                client default `request_timeout` is used.
+
+        Returns:
+            JSON-RPC `result` payload.
+
+        Raises:
+            CodexTransportError: If client is closed or transport fails.
+            CodexTimeoutError: If no response arrives within timeout.
+            CodexProtocolError: If response contains JSON-RPC error payload.
+        """
         if self._closed:
             raise CodexTransportError("client is closed")
 
@@ -413,7 +550,17 @@ class CodexClient:
         return response.get("result")
 
     async def start_thread(self, config: ThreadConfig | None = None) -> ThreadHandle:
-        """Create a new thread with optional thread-level configuration."""
+        """Create a new thread and return a bound handle.
+
+        Args:
+            config: Optional thread-level configuration for `thread/start`.
+
+        Returns:
+            `ThreadHandle` bound to created thread id.
+
+        Raises:
+            CodexProtocolError: If server response lacks thread id.
+        """
         if not self._initialized:
             await self.initialize()
 
@@ -430,7 +577,15 @@ class CodexClient:
         *,
         overrides: ThreadConfig | None = None,
     ) -> ThreadHandle:
-        """Resume an existing thread and optionally apply thread-level overrides."""
+        """Resume an existing thread and return a bound handle.
+
+        Args:
+            thread_id: Existing thread id to resume.
+            overrides: Optional thread-level overrides applied on resume.
+
+        Returns:
+            `ThreadHandle` bound to resumed thread id.
+        """
         if not self._initialized:
             await self.initialize()
 
@@ -450,7 +605,18 @@ class CodexClient:
         *,
         overrides: ThreadConfig | None = None,
     ) -> ThreadHandle:
-        """Fork an existing thread into a new thread with optional overrides."""
+        """Fork an existing thread and return a handle for the fork.
+
+        Args:
+            thread_id: Source thread id to fork from.
+            overrides: Optional thread-level overrides for the forked thread.
+
+        Returns:
+            `ThreadHandle` bound to forked thread id.
+
+        Raises:
+            CodexProtocolError: If server response lacks forked thread id.
+        """
         if not self._initialized:
             await self.initialize()
 
@@ -467,7 +633,12 @@ class CodexClient:
         )
 
     async def set_thread_defaults(self, thread_id: str, overrides: ThreadConfig) -> None:
-        """Apply thread-level overrides to an existing thread."""
+        """Apply thread-level defaults to an existing thread.
+
+        Args:
+            thread_id: Target thread id.
+            overrides: Thread-level fields applied through `thread/resume`.
+        """
         if not self._initialized:
             await self.initialize()
         params: dict[str, Any] = {"threadId": thread_id}
@@ -475,7 +646,15 @@ class CodexClient:
         await self.request(THREAD_RESUME_METHOD, params)
 
     async def read_thread(self, thread_id: str, *, include_turns: bool = True) -> Any:
-        """Read server-side thread state."""
+        """Read server-side thread state.
+
+        Args:
+            thread_id: Target thread id.
+            include_turns: Whether returned thread payload should include turns.
+
+        Returns:
+            Raw `thread/read` response payload.
+        """
         return await self.request(
             THREAD_READ_METHOD,
             {"threadId": thread_id, "includeTurns": include_turns},
@@ -492,7 +671,20 @@ class CodexClient:
         sort_key: Literal["created_at", "updated_at"] | None = None,
         sort_direction: Literal["asc", "desc"] | None = None,
     ) -> Any:
-        """List server threads with optional filters."""
+        """List threads with optional filters and pagination.
+
+        Args:
+            archived: Optional archived-state filter.
+            cursor: Optional pagination cursor.
+            cwd: Optional working-directory filter.
+            limit: Optional page size.
+            model_providers: Optional model provider filter list.
+            sort_key: Optional sort key (`created_at` or `updated_at`).
+            sort_direction: Optional sort direction (`asc` or `desc`).
+
+        Returns:
+            Raw `thread/list` response payload.
+        """
         params = _filter_none(
             {
                 "archived": archived,
@@ -509,23 +701,51 @@ class CodexClient:
         return await self.request(THREAD_LIST_METHOD, params)
 
     async def set_thread_name(self, thread_id: str, name: str) -> None:
-        """Set user-facing thread name."""
+        """Set user-facing thread name.
+
+        Args:
+            thread_id: Target thread id.
+            name: Thread display name.
+        """
         await self.request(THREAD_NAME_SET_METHOD, {"threadId": thread_id, "name": name})
 
     async def archive_thread(self, thread_id: str) -> None:
-        """Archive thread."""
+        """Archive a thread.
+
+        Args:
+            thread_id: Target thread id.
+        """
         await self.request(THREAD_ARCHIVE_METHOD, {"threadId": thread_id})
 
     async def unarchive_thread(self, thread_id: str) -> None:
-        """Unarchive thread."""
+        """Unarchive a thread.
+
+        Args:
+            thread_id: Target thread id.
+        """
         await self.request(THREAD_UNARCHIVE_METHOD, {"threadId": thread_id})
 
     async def compact_thread(self, thread_id: str) -> Any:
-        """Start compaction for thread history."""
+        """Start compaction for thread history.
+
+        Args:
+            thread_id: Target thread id.
+
+        Returns:
+            Raw `thread/compact/start` response payload.
+        """
         return await self.request(THREAD_COMPACT_START_METHOD, {"threadId": thread_id})
 
     async def rollback_thread(self, thread_id: str, *, num_turns: int) -> Any:
-        """Drop the last `num_turns` turns from thread history."""
+        """Drop the most recent turns from thread history.
+
+        Args:
+            thread_id: Target thread id.
+            num_turns: Number of latest turns to remove.
+
+        Returns:
+            Raw `thread/rollback` response payload.
+        """
         return await self.request(
             THREAD_ROLLBACK_METHOD,
             {"threadId": thread_id, "numTurns": num_turns},
@@ -538,7 +758,16 @@ class CodexClient:
         include_hidden: bool | None = None,
         limit: int | None = None,
     ) -> Any:
-        """List available models."""
+        """List available models.
+
+        Args:
+            cursor: Optional pagination cursor.
+            include_hidden: Optional hidden-model inclusion flag.
+            limit: Optional page size.
+
+        Returns:
+            Raw `model/list` response payload.
+        """
         params = _filter_none(
             {
                 "cursor": cursor,
@@ -555,7 +784,16 @@ class CodexClient:
         expected_turn_id: str,
         input_items: Sequence[Mapping[str, Any]],
     ) -> Any:
-        """Steer an active turn with additional user input."""
+        """Steer an active turn with additional input items.
+
+        Args:
+            thread_id: Target thread id.
+            expected_turn_id: Running turn id expected by server.
+            input_items: Additional input items forwarded as `input`.
+
+        Returns:
+            Raw `turn/steer` response payload.
+        """
         return await self.request(
             TURN_STEER_METHOD,
             {
@@ -572,7 +810,16 @@ class CodexClient:
         target: Mapping[str, Any],
         delivery: Literal["inline", "detached"] | None = None,
     ) -> Any:
-        """Start review mode for a thread."""
+        """Start review mode for a thread.
+
+        Args:
+            thread_id: Target thread id.
+            target: Review target payload.
+            delivery: Optional delivery mode (`inline` or `detached`).
+
+        Returns:
+            Raw `review/start` response payload.
+        """
         params = {
             "threadId": thread_id,
             "target": dict(target),
@@ -589,7 +836,17 @@ class CodexClient:
         sandbox_policy: Mapping[str, Any] | None = None,
         timeout_ms: int | None = None,
     ) -> Any:
-        """Execute one command via `command/exec`."""
+        """Execute one command through `command/exec`.
+
+        Args:
+            command: Command argv list.
+            cwd: Optional command working directory.
+            sandbox_policy: Optional sandbox policy payload.
+            timeout_ms: Optional command timeout in milliseconds.
+
+        Returns:
+            Raw `command/exec` response payload.
+        """
         params: dict[str, Any] = {"command": list(command)}
         if cwd is not None:
             params["cwd"] = cwd
@@ -605,14 +862,26 @@ class CodexClient:
         cwd: str | None = None,
         include_layers: bool = False,
     ) -> Any:
-        """Read effective config and optional config layers."""
+        """Read effective config and optional config layers.
+
+        Args:
+            cwd: Optional working directory used for config resolution.
+            include_layers: Include per-layer config data when true.
+
+        Returns:
+            Raw `config/read` response payload.
+        """
         params: dict[str, Any] = {"includeLayers": include_layers}
         if cwd is not None:
             params["cwd"] = cwd
         return await self.request(CONFIG_READ_METHOD, params)
 
     async def read_config_requirements(self) -> Any:
-        """Read config requirements/constraints."""
+        """Read config requirements/constraints.
+
+        Returns:
+            Raw `configRequirements/read` response payload.
+        """
         return await self.request(CONFIG_REQUIREMENTS_READ_METHOD)
 
     async def write_config_value(
@@ -624,7 +893,18 @@ class CodexClient:
         expected_version: str | None = None,
         file_path: str | None = None,
     ) -> Any:
-        """Write one config key path."""
+        """Write one config key path.
+
+        Args:
+            key_path: Dot-path key to write.
+            value: Value to write.
+            merge_strategy: Merge behavior (`replace` or `upsert`).
+            expected_version: Optional optimistic-lock version.
+            file_path: Optional target config file path.
+
+        Returns:
+            Raw `config/value/write` response payload.
+        """
         params: dict[str, Any] = {
             "keyPath": key_path,
             "mergeStrategy": merge_strategy,
@@ -643,7 +923,16 @@ class CodexClient:
         expected_version: str | None = None,
         file_path: str | None = None,
     ) -> Any:
-        """Write multiple config edits atomically."""
+        """Write multiple config edits atomically.
+
+        Args:
+            edits: Sequence of edit payload objects.
+            expected_version: Optional optimistic-lock version.
+            file_path: Optional target config file path.
+
+        Returns:
+            Raw `config/batchWrite` response payload.
+        """
         params: dict[str, Any] = {"edits": [dict(edit) for edit in edits]}
         if expected_version is not None:
             params["expectedVersion"] = expected_version
@@ -665,8 +954,37 @@ class CodexClient:
     ) -> ChatResult:
         """Send one user message and wait for final assistant output.
 
-        On inactivity timeout this raises `CodexTurnInactiveError` with a
-        continuation token; call `chat_once(continuation=...)` to resume.
+        Args:
+            text: User text for a new turn. Must be omitted when resuming with
+                `continuation`.
+            thread_id: Existing thread id for the turn. If omitted, a new
+                thread is started.
+            user: Optional user label forwarded on `turn/start`.
+            metadata: Optional per-turn metadata forwarded on `turn/start`.
+            thread_config: Optional thread-level overrides applied to thread
+                start/resume context.
+            turn_overrides: Optional per-turn override payload forwarded on
+                `turn/start`.
+            inactivity_timeout: Optional per-call inactivity timeout override in
+                seconds. `None` uses client default; if resolved value is `None`,
+                wait is unbounded by inactivity.
+            continuation: Continuation token from `CodexTurnInactiveError` for
+                resuming the same running turn.
+
+        Returns:
+            `ChatResult` with final assistant text and raw consumed events.
+
+        Raises:
+            ValueError: If required inputs are missing or continuation
+                constraints are violated.
+            CodexTurnInactiveError: If no matching turn events arrive before
+                timeout. Includes resumable continuation token.
+            CodexProtocolError: If turn fails or completion cannot be resolved.
+            CodexTransportError: If transport fails while receiving events.
+
+        Notes:
+            When `continuation` is provided, `text`, `thread_config`, and
+            `turn_overrides` cannot be provided in the same call.
         """
         if continuation is not None:
             if text is not None:
@@ -762,11 +1080,41 @@ class CodexClient:
     ) -> AsyncIterator[ConversationStep]:
         """Stream completed, non-delta conversation steps for one turn.
 
-        Step emission is live-notification based (`item/completed`) and does
-        not backfill from `thread/read` snapshots for the same turn.
+        Args:
+            text: User text for a new turn. Must be omitted when resuming with
+                `continuation`.
+            thread_id: Existing thread id for the turn. If omitted, a new
+                thread is started.
+            user: Optional user label forwarded on `turn/start`.
+            metadata: Optional per-turn metadata forwarded on `turn/start`.
+            thread_config: Optional thread-level overrides applied to thread
+                start/resume context.
+            turn_overrides: Optional per-turn override payload forwarded on
+                `turn/start`.
+            inactivity_timeout: Optional per-call inactivity timeout override in
+                seconds. `None` uses client default; if resolved value is `None`,
+                wait is unbounded by inactivity.
+            continuation: Continuation token from `CodexTurnInactiveError` for
+                resuming the same running turn.
 
-        On inactivity timeout this raises `CodexTurnInactiveError` with a
-        continuation token; call `chat(continuation=...)` to resume the same turn.
+        Yields:
+            Completed non-delta step blocks (`ConversationStep`), sourced from
+            live `item/completed` notifications.
+
+        Raises:
+            ValueError: If required inputs are missing or continuation
+                constraints are violated.
+            CodexTurnInactiveError: If no matching turn events arrive before
+                timeout. Includes resumable continuation token.
+            CodexProtocolError: If turn fails.
+            CodexTransportError: If transport fails while receiving events.
+
+        Notes:
+            Streaming is live-notification based and intentionally does not
+            backfill from `thread/read` snapshots for the same turn.
+
+            When `continuation` is provided, `text`, `thread_config`, and
+            `turn_overrides` cannot be provided in the same call.
         """
         if continuation is not None:
             if text is not None:
@@ -834,7 +1182,20 @@ class CodexClient:
         *,
         timeout: float | None = None,
     ) -> CancelResult:
-        """Interrupt a running turn and return unread data for that continuation."""
+        """Interrupt a running turn and return unread data since continuation cursor.
+
+        Args:
+            continuation: Continuation token for the active turn session.
+            timeout: Optional timeout for interrupt/drain wait. Defaults to
+                client request timeout.
+
+        Returns:
+            `CancelResult` containing unread steps/events and terminal flags.
+
+        Notes:
+            Internal turn state is cleaned after cancel so the thread can be
+            reused for new turns.
+        """
         wait_timeout = timeout if timeout is not None else self._request_timeout
         turn_id = continuation.turn_id
         thread_id = continuation.thread_id
@@ -892,7 +1253,12 @@ class CodexClient:
         return result
 
     async def interrupt_turn(self, turn_id: str, *, timeout: float | None = None) -> None:
-        """Send best-effort `turn/interrupt` for a running turn."""
+        """Send best-effort `turn/interrupt` for a running turn.
+
+        Args:
+            turn_id: Running turn id to interrupt.
+            timeout: Optional per-request timeout override in seconds.
+        """
         await self.request(
             TURN_INTERRUPT_METHOD,
             {"turnId": turn_id},

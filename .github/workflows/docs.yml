@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
+      - name: Check method links
+        run: uv run python scripts/check_chat_method_links.py
+
       - name: Build docs
         run: uv run zensical build
 

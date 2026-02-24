@@ -84,7 +84,14 @@ class StdioTransport(Transport):
             ) from exc
 
     async def send(self, payload: Mapping[str, Any]) -> None:
-        """Write one JSON line to subprocess stdin."""
+        """Write one JSON line to subprocess stdin.
+
+        Args:
+            payload: JSON-serializable request/response/notification payload.
+
+        Raises:
+            CodexTransportError: If transport is disconnected or write fails.
+        """
         if self._proc is None or self._proc.stdin is None:
             raise CodexTransportError("stdio transport is not connected")
         line = json.dumps(dict(payload), separators=(",", ":")) + "\n"
@@ -95,7 +102,15 @@ class StdioTransport(Transport):
             raise CodexTransportError("failed writing to stdio transport") from exc
 
     async def recv(self) -> dict[str, Any]:
-        """Read one JSON line from subprocess stdout."""
+        """Read one JSON line from subprocess stdout.
+
+        Returns:
+            Parsed JSON payload.
+
+        Raises:
+            CodexTransportError: If transport is disconnected, closed, or emits
+                invalid JSON.
+        """
         if self._proc is None or self._proc.stdout is None:
             raise CodexTransportError("stdio transport is not connected")
         try:
@@ -171,7 +186,14 @@ class WebSocketTransport(Transport):
             ) from exc
 
     async def send(self, payload: Mapping[str, Any]) -> None:
-        """Send one JSON text frame over websocket."""
+        """Send one JSON text frame over websocket.
+
+        Args:
+            payload: JSON-serializable request/response/notification payload.
+
+        Raises:
+            CodexTransportError: If transport is disconnected or write fails.
+        """
         if self._socket is None:
             raise CodexTransportError("websocket transport is not connected")
         try:
@@ -180,7 +202,15 @@ class WebSocketTransport(Transport):
             raise CodexTransportError("failed writing to websocket transport") from exc
 
     async def recv(self) -> dict[str, Any]:
-        """Receive and decode one websocket frame as JSON."""
+        """Receive and decode one websocket frame as JSON.
+
+        Returns:
+            Parsed JSON payload.
+
+        Raises:
+            CodexTransportError: If transport is disconnected, read fails, or
+                frame payload is invalid JSON.
+        """
         if self._socket is None:
             raise CodexTransportError("websocket transport is not connected")
         try:

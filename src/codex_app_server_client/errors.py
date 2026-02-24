@@ -19,7 +19,12 @@ class CodexTimeoutError(CodexError):
 
 
 class CodexTurnInactiveError(CodexTimeoutError):
-    """Raised when a running turn emits no matching events for too long."""
+    """Raised when a running turn emits no matching events for too long.
+
+    Attributes:
+        continuation: Opaque token used to resume the same running turn.
+        idle_seconds: Resolved inactivity timeout that triggered this exception.
+    """
 
     def __init__(
         self,
@@ -28,6 +33,13 @@ class CodexTurnInactiveError(CodexTimeoutError):
         continuation: ChatContinuation,
         idle_seconds: float,
     ) -> None:
+        """Create a turn inactivity timeout error.
+
+        Args:
+            message: Human-readable timeout description.
+            continuation: Continuation token for resuming interrupted wait.
+            idle_seconds: Timeout value in seconds that was exceeded.
+        """
         super().__init__(message)
         self.continuation = continuation
         self.idle_seconds = idle_seconds
