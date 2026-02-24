@@ -90,7 +90,7 @@ async def run(args: argparse.Namespace) -> int:
             )
             _log(args, f"resumed thread_id={thread.thread_id}")
 
-            _log(args, "sending prompt...")
+            _log(args, f"sending prompt={args.prompt!r}")
             result = await thread.chat_once(args.prompt)
             _log(
                 args,

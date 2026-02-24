@@ -111,7 +111,7 @@ async def run(args: argparse.Namespace) -> int:
             )
             _log(args, f"started thread_id={thread.thread_id}")
 
-            _log(args, "sending original prompt...")
+            _log(args, f"sending original prompt={args.prompt!r}")
             first = await thread.chat_once(args.prompt)
             _log(
                 args,
@@ -134,7 +134,7 @@ async def run(args: argparse.Namespace) -> int:
             )
             _log(args, f"forked parent={thread.thread_id} forked={forked.thread_id}")
 
-            _log(args, "streaming forked turn steps...")
+            _log(args, f"streaming forked turn prompt={args.fork_prompt!r}")
             async for step in forked.chat(
                 args.fork_prompt,
                 turn_overrides=TurnOverrides(effort="low"),

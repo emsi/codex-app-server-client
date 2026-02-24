@@ -255,6 +255,10 @@ uv run python examples/thread_resume_by_id.py --thread-id <existing-thread-id> -
 
 ### Concurrent thread handles example
 
+This example starts two new threads and runs turns concurrently on those fresh
+`ThreadHandle`s over one shared client connection (it does not call
+`thread/resume` for the newly started threads).
+
 ```bash
 uv run python examples/thread_concurrent_handles.py --transport stdio
 ```
@@ -271,6 +275,10 @@ This example uses the newly exposed helper APIs:
 - `thread/read`, `thread/list`, `thread/name/set`, `thread/archive`
 - `model/list`
 - `config/read`
+- endpoint-aware summaries with explicit `<not-provided>` / `null` values
+- optional thread model update reporting with `--set-model`
+- `config/read` prints `origin_entries`: count of config keys that include
+  provenance metadata (which layer/file provided that effective value)
 
 ```bash
 uv run python examples/thread_ops_showcase.py \
@@ -285,6 +293,12 @@ Websocket:
 uv run python examples/thread_ops_showcase.py \
   --transport websocket \
   --url ws://127.0.0.1:8765
+```
+
+Show model update intent and before/after thread snapshot model visibility:
+
+```bash
+uv run python examples/thread_ops_showcase.py --set-model gpt-5.3-codex
 ```
 
 With raw payload dumps:
@@ -407,7 +421,8 @@ uv run python examples/chat_session_websocket.py
 ## Behavior notes
 
 - This version does not expose token-delta streaming as a public API.
-- `chat(...)` provides async streaming of completed step blocks (non-delta).
+- `chat(...)` provides async streaming of completed step blocks (non-delta) from live `item/completed` notifications only.
+- `chat(...)` intentionally does not merge `thread/read` snapshot items for the same turn, avoiding duplicate blocks when snapshot item IDs differ from live event item IDs.
 - `chat_once(...)` resolves final text from completed `agentMessage` items (`item/completed`), with `thread/read(includeTurns=true)` fallback.
 - `turn_timeout` is intentionally removed to avoid conflicting timeout semantics.
 - Turn waits are controlled by `inactivity_timeout` (or unbounded when `None`).

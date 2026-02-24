@@ -15,6 +15,7 @@ from codex_app_server_client import (
     CodexTimeoutError,
     CodexTransportError,
     ThreadConfig,
+    ThreadHandle,
 )
 
 
@@ -93,10 +94,10 @@ async def run(args: argparse.Namespace) -> int:
             )
             _log(args, f"started thread B id={thread_b.thread_id}")
 
-            async def _run_one(name: str, thread_id: str, prompt: str) -> None:
-                _log(args, f"[{name}] resuming thread_id={thread_id}...")
-                handle = await client.resume_thread(thread_id)
-                _log(args, f"[{name}] sending prompt...")
+            async def _run_one(name: str, handle: ThreadHandle, prompt: str) -> None:
+                thread_id = handle.thread_id
+                _log(args, f"[{name}] using thread_id={thread_id}...")
+                _log(args, f"[{name}] sending prompt={prompt!r}")
                 result = await handle.chat_once(prompt)
                 _log(
                     args,
@@ -105,8 +106,8 @@ async def run(args: argparse.Namespace) -> int:
                 print(f"[{name}:{result.thread_id}] {result.final_text}")
 
             await asyncio.gather(
-                _run_one("A", thread_a.thread_id, args.prompt_a),
-                _run_one("B", thread_b.thread_id, args.prompt_b),
+                _run_one("A", thread_a, args.prompt_a),
+                _run_one("B", thread_b, args.prompt_b),
             )
             _log(args, "all concurrent thread turns completed")
 
