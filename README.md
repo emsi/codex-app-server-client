@@ -22,7 +22,7 @@ uv sync
 
 ## Documentation
 
-Full docs are built with MkDocs (Material + mkdocstrings) from source code
+Full docs are built with Zensical (MkDocs-compatible) + mkdocstrings from source code
 docstrings, README guidance, and example workflows.
 
 - hosted site (GitHub Pages): `https://emsi.github.io/codex-app-server-client/`
@@ -30,11 +30,11 @@ docstrings, README guidance, and example workflows.
 Local docs commands:
 
 ```bash
-uv run mkdocs serve
+uv run zensical serve
 ```
 
 ```bash
-uv run mkdocs build --strict
+uv run zensical build
 ```
 
 ## Quick start

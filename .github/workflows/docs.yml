@@ -25,8 +25,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
-      - name: Build docs (strict)
-        run: uv run mkdocs build --strict
+      - name: Build docs
+        run: uv run zensical build
 
       - name: Link check
         uses: lycheeverse/lychee-action@v2
@@ -68,8 +68,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
-      - name: Build docs (strict)
-        run: uv run mkdocs build --strict
+      - name: Build docs
+        run: uv run zensical build
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

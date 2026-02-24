@@ -27,9 +27,9 @@ uv sync
 ## Local docs workflow
 
 ```bash
-uv run mkdocs serve
+uv run zensical serve
 ```
 
 ```bash
-uv run mkdocs build --strict
+uv run zensical build
 ```
