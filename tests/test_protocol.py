@@ -1,4 +1,4 @@
-from codex_app_server_client.protocol import (
+from codex_app_server_sdk.protocol import (
     extract_error,
     make_error_response,
     make_request,

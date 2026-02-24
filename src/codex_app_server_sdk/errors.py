@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 
 class CodexError(Exception):
-    """Base exception for the codex-app-server-client package."""
+    """Base exception for the codex-app-server-sdk package."""
 
 
 class CodexTransportError(CodexError):

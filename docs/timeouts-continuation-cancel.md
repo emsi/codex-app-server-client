@@ -2,11 +2,11 @@
 
 ## Related API
 
-- [`CodexClient.chat_once(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat_once)
-- [`CodexClient.chat(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat)
-- [`CodexTurnInactiveError`](api/errors.md#codex_app_server_client.errors.CodexTurnInactiveError)
-- [`ChatContinuation`](api/models.md#codex_app_server_client.models.ChatContinuation)
-- [`CodexClient.cancel(...)`](api/client.md#codex_app_server_client.client.CodexClient.cancel)
+- [`CodexClient.chat_once(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.chat_once)
+- [`CodexClient.chat(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.chat)
+- [`CodexTurnInactiveError`](api/errors.md#codex_app_server_sdk.errors.CodexTurnInactiveError)
+- [`ChatContinuation`](api/models.md#codex_app_server_sdk.models.ChatContinuation)
+- [`CodexClient.cancel(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.cancel)
 
 ## Request timeout vs inactivity timeout
 
@@ -17,8 +17,8 @@
 
 ## Continuation flow
 
-When a turn goes inactive, APIs raise [`CodexTurnInactiveError`](api/errors.md#codex_app_server_client.errors.CodexTurnInactiveError) with a
-[`continuation`](api/models.md#codex_app_server_client.models.ChatContinuation) token.
+When a turn goes inactive, APIs raise [`CodexTurnInactiveError`](api/errors.md#codex_app_server_sdk.errors.CodexTurnInactiveError) with a
+[`continuation`](api/models.md#codex_app_server_sdk.models.ChatContinuation) token.
 
 ```python
 continuation = None
@@ -55,4 +55,4 @@ cancelled = await client.cancel(exc.continuation)
 print(cancelled.was_interrupted, len(cancelled.steps), len(cancelled.raw_events))
 ```
 
-[`cancel(...)`](api/client.md#codex_app_server_client.client.CodexClient.cancel) cleans internal turn state so the thread can be reused safely.
+[`cancel(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.cancel) cleans internal turn state so the thread can be reused safely.

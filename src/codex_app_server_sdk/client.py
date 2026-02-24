@@ -1854,7 +1854,7 @@ def _default_initialize_params() -> dict[str, Any]:
     return {
         "protocolVersion": "1",
         "clientInfo": {
-            "name": "codex-app-server-client",
+            "name": "codex-app-server-sdk",
             "version": "0.1.0",
         },
         "capabilities": {

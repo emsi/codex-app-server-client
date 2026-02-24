@@ -1,6 +1,6 @@
 [project]
 name = "codex-app-server-sdk"
-version = "0.2.1"
+version = "0.3.0"
 description = "Async Python client for Codex app-server over stdio and websocket."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -61,4 +61,4 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/codex_app_server_client"]
+packages = ["src/codex_app_server_sdk"]

@@ -3,9 +3,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from codex_app_server_client.errors import CodexTransportError
-from codex_app_server_client.transport import StdioTransport, WebSocketTransport
-import codex_app_server_client.transport as transport_module
+from codex_app_server_sdk.errors import CodexTransportError
+from codex_app_server_sdk.transport import StdioTransport, WebSocketTransport
+import codex_app_server_sdk.transport as transport_module
 
 
 def test_stdio_transport_requires_command() -> None:

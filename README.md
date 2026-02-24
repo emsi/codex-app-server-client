@@ -1,4 +1,4 @@
-# codex-app-server-client
+# codex-app-server-sdk
 
 High-level async Python client for `codex app-server`.
 
@@ -47,7 +47,7 @@ uv pip install codex-app-server-sdk
 
 ```python
 import asyncio
-from codex_app_server_client import CodexClient
+from codex_app_server_sdk import CodexClient
 
 
 async def main() -> None:
@@ -70,7 +70,7 @@ You can override via:
 
 ```python
 import asyncio
-from codex_app_server_client import CodexClient
+from codex_app_server_sdk import CodexClient
 
 
 async def main() -> None:
@@ -92,7 +92,7 @@ Both high-level APIs support resuming the same running turn.
 
 ```python
 import asyncio
-from codex_app_server_client import CodexClient, CodexTurnInactiveError
+from codex_app_server_sdk import CodexClient, CodexTurnInactiveError
 
 
 async def main() -> None:
@@ -128,7 +128,7 @@ Use explicit thread handles when you need thread-scoped configuration.
 
 ```python
 import asyncio
-from codex_app_server_client import CodexClient, ThreadConfig, TurnOverrides
+from codex_app_server_sdk import CodexClient, ThreadConfig, TurnOverrides
 
 
 async def main() -> None:
@@ -176,7 +176,7 @@ asyncio.run(main())
 Example:
 
 ```python
-from codex_app_server_client import ThreadConfig, UNSET
+from codex_app_server_sdk import ThreadConfig, UNSET
 
 cfg = ThreadConfig(
     model=UNSET,  # omit key
@@ -376,7 +376,7 @@ uv run python examples/chat_session_websocket.py
 
 ## API reference (quick)
 
-### `CodexClient` (`src/codex_app_server_client/client.py`)
+### `CodexClient` (`src/codex_app_server_sdk/client.py`)
 
 - `connect_stdio(...)`: create a stdio-configured client (unstarted).
 - `connect_websocket(...)`: create a websocket-configured client (unstarted).
@@ -404,13 +404,13 @@ uv run python examples/chat_session_websocket.py
 - `interrupt_turn(turn_id, timeout=None)`: low-level turn interruption request.
 - `close()`: cancel receive loop and close transport.
 
-### `Transport` and implementations (`src/codex_app_server_client/transport.py`)
+### `Transport` and implementations (`src/codex_app_server_sdk/transport.py`)
 
 - `Transport.connect/send/recv/close`: abstract interface.
 - `StdioTransport`: line-delimited JSON over subprocess stdin/stdout.
 - `WebSocketTransport`: JSON messages over websocket frames.
 
-### Data models (`src/codex_app_server_client/models.py`)
+### Data models (`src/codex_app_server_sdk/models.py`)
 
 - `InitializeResult`: parsed initialize response (`protocol_version`, `server_info`, `capabilities`, `raw`).
 - `ConversationStep`: completed step from `chat(...)` (`step_type`, `item_type`, `text`, `item_id`, `thread_id`, `turn_id`, `data`).
@@ -422,7 +422,7 @@ uv run python examples/chat_session_websocket.py
 - `UNSET`: sentinel for “omit this field from request payload.”
 - `ApprovalPolicy`: literal type for approval policy values (`untrusted`, `on-failure`, `on-request`, `never`).
 
-### `ThreadHandle` (`src/codex_app_server_client/client.py`)
+### `ThreadHandle` (`src/codex_app_server_sdk/client.py`)
 
 - `thread_id`: bound thread id.
 - `defaults`: local thread config snapshot.
@@ -434,7 +434,7 @@ uv run python examples/chat_session_websocket.py
 - `set_name(name)`, `archive()`, `unarchive()`, `rollback(num_turns)`, `compact()`: thread lifecycle/history helpers.
 - `start_review(target, delivery=None)`: thread-bound review API.
 
-### Exceptions (`src/codex_app_server_client/errors.py`)
+### Exceptions (`src/codex_app_server_sdk/errors.py`)
 
 - `CodexError`: base exception.
 - `CodexTransportError`: transport/connectivity problems.
@@ -475,7 +475,7 @@ When `params=None`, the client sends:
 {
   "protocolVersion": "1",
   "clientInfo": {
-    "name": "codex-app-server-client",
+    "name": "codex-app-server-sdk",
     "version": "0.1.0"
   },
   "capabilities": {
@@ -520,7 +520,7 @@ Merge rules:
 
 ```python
 import asyncio
-from codex_app_server_client import CodexClient
+from codex_app_server_sdk import CodexClient
 
 
 async def main() -> None:

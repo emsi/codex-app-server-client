@@ -12,11 +12,15 @@
 uv sync
 ```
 
+Canonical import path is `codex_app_server_sdk`.
+
+Legacy alias: `codex_app_server_sdk` remains available for backward compatibility.
+
 ## Minimal stdio example
 
 ```python
 import asyncio
-from codex_app_server_client import CodexClient
+from codex_app_server_sdk import CodexClient
 
 
 async def main() -> None:
@@ -32,7 +36,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from codex_app_server_client import CodexClient
+from codex_app_server_sdk import CodexClient
 
 
 async def main() -> None:
@@ -48,7 +52,7 @@ asyncio.run(main())
 
 ## Explicit initialize handshake
 
-[`chat_once(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat_once) and [`chat(...)`](api/client.md#codex_app_server_client.client.CodexClient.chat) initialize automatically, but you can initialize
+[`chat_once(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.chat_once) and [`chat(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.chat) initialize automatically, but you can initialize
 early to fail fast or inspect server metadata.
 
 ```python

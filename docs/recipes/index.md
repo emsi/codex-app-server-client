@@ -4,11 +4,11 @@ Task-oriented guides for common usage patterns.
 
 ## Core API entrypoints
 
-- [`CodexClient`](../api/client.md#codex_app_server_client.client.CodexClient)
-- [`ThreadHandle`](../api/client.md#codex_app_server_client.client.ThreadHandle)
-- [`ThreadConfig`](../api/models.md#codex_app_server_client.models.ThreadConfig)
-- [`TurnOverrides`](../api/models.md#codex_app_server_client.models.TurnOverrides)
-- [`CodexTurnInactiveError`](../api/errors.md#codex_app_server_client.errors.CodexTurnInactiveError)
+- [`CodexClient`](../api/client.md#codex_app_server_sdk.client.CodexClient)
+- [`ThreadHandle`](../api/client.md#codex_app_server_sdk.client.ThreadHandle)
+- [`ThreadConfig`](../api/models.md#codex_app_server_sdk.models.ThreadConfig)
+- [`TurnOverrides`](../api/models.md#codex_app_server_sdk.models.TurnOverrides)
+- [`CodexTurnInactiveError`](../api/errors.md#codex_app_server_sdk.errors.CodexTurnInactiveError)
 
 ## Guides
 

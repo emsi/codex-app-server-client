@@ -4,8 +4,8 @@ import asyncio
 from collections.abc import Mapping
 from typing import Any
 
-from codex_app_server_client.client import CodexClient
-from codex_app_server_client.transport import Transport
+from codex_app_server_sdk.client import CodexClient
+from codex_app_server_sdk.transport import Transport
 
 
 class CompletedItemTransport(Transport):

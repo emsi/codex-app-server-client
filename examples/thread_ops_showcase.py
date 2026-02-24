@@ -12,7 +12,7 @@ import sys
 from collections.abc import Mapping
 from typing import Any
 
-from codex_app_server_client import (
+from codex_app_server_sdk import (
     CodexClient,
     CodexProtocolError,
     CodexTimeoutError,

@@ -16,7 +16,7 @@ import asyncio
 import os
 import sys
 
-from codex_app_server_client import (
+from codex_app_server_sdk import (
     ChatContinuation,
     CodexClient,
     CodexProtocolError,

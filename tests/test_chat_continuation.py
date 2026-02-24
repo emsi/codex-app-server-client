@@ -4,10 +4,10 @@ import asyncio
 from collections.abc import Mapping
 from typing import Any
 
-from codex_app_server_client.client import CodexClient
-from codex_app_server_client.errors import CodexTurnInactiveError
-from codex_app_server_client.models import ChatContinuation
-from codex_app_server_client.transport import Transport
+from codex_app_server_sdk.client import CodexClient
+from codex_app_server_sdk.errors import CodexTurnInactiveError
+from codex_app_server_sdk.models import ChatContinuation
+from codex_app_server_sdk.transport import Transport
 
 
 class DelayedCompletionTransport(Transport):

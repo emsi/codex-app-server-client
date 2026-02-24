@@ -2,16 +2,16 @@
 
 ## Related API
 
-- [`CodexClient`](api/client.md#codex_app_server_client.client.CodexClient)
-- [`ThreadHandle`](api/client.md#codex_app_server_client.client.ThreadHandle)
-- [`ThreadConfig`](api/models.md#codex_app_server_client.models.ThreadConfig)
-- [`TurnOverrides`](api/models.md#codex_app_server_client.models.TurnOverrides)
+- [`CodexClient`](api/client.md#codex_app_server_sdk.client.CodexClient)
+- [`ThreadHandle`](api/client.md#codex_app_server_sdk.client.ThreadHandle)
+- [`ThreadConfig`](api/models.md#codex_app_server_sdk.models.ThreadConfig)
+- [`TurnOverrides`](api/models.md#codex_app_server_sdk.models.TurnOverrides)
 
 ## Scope boundaries
 
-- [`CodexClient`](api/client.md#codex_app_server_client.client.CodexClient): connection/session scope
-- [`ThreadHandle`](api/client.md#codex_app_server_client.client.ThreadHandle) + [`ThreadConfig`](api/models.md#codex_app_server_client.models.ThreadConfig): thread scope
-- [`TurnOverrides`](api/models.md#codex_app_server_client.models.TurnOverrides): per-turn scope
+- [`CodexClient`](api/client.md#codex_app_server_sdk.client.CodexClient): connection/session scope
+- [`ThreadHandle`](api/client.md#codex_app_server_sdk.client.ThreadHandle) + [`ThreadConfig`](api/models.md#codex_app_server_sdk.models.ThreadConfig): thread scope
+- [`TurnOverrides`](api/models.md#codex_app_server_sdk.models.TurnOverrides): per-turn scope
 
 ## `UNSET` vs `None`
 
@@ -19,7 +19,7 @@
 - `None`: send explicit JSON `null` (where allowed by protocol)
 
 ```python
-from codex_app_server_client import ThreadConfig, UNSET
+from codex_app_server_sdk import ThreadConfig, UNSET
 
 cfg = ThreadConfig(
     model=UNSET,
@@ -31,22 +31,22 @@ cfg = ThreadConfig(
 
 High-level methods:
 
-- [`start_thread(config=None)`](api/client.md#codex_app_server_client.client.CodexClient.start_thread)
-- [`resume_thread(thread_id, overrides=None)`](api/client.md#codex_app_server_client.client.CodexClient.resume_thread)
-- [`fork_thread(thread_id, overrides=None)`](api/client.md#codex_app_server_client.client.CodexClient.fork_thread)
-- [`read_thread(thread_id, include_turns=True)`](api/client.md#codex_app_server_client.client.CodexClient.read_thread)
-- [`list_threads(...)`](api/client.md#codex_app_server_client.client.CodexClient.list_threads)
-- [`set_thread_name(...)`](api/client.md#codex_app_server_client.client.CodexClient.set_thread_name)
-- [`archive_thread(...)`](api/client.md#codex_app_server_client.client.CodexClient.archive_thread) / [`unarchive_thread(...)`](api/client.md#codex_app_server_client.client.CodexClient.unarchive_thread)
-- [`compact_thread(...)`](api/client.md#codex_app_server_client.client.CodexClient.compact_thread)
-- [`rollback_thread(...)`](api/client.md#codex_app_server_client.client.CodexClient.rollback_thread)
+- [`start_thread(config=None)`](api/client.md#codex_app_server_sdk.client.CodexClient.start_thread)
+- [`resume_thread(thread_id, overrides=None)`](api/client.md#codex_app_server_sdk.client.CodexClient.resume_thread)
+- [`fork_thread(thread_id, overrides=None)`](api/client.md#codex_app_server_sdk.client.CodexClient.fork_thread)
+- [`read_thread(thread_id, include_turns=True)`](api/client.md#codex_app_server_sdk.client.CodexClient.read_thread)
+- [`list_threads(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.list_threads)
+- [`set_thread_name(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.set_thread_name)
+- [`archive_thread(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.archive_thread) / [`unarchive_thread(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.unarchive_thread)
+- [`compact_thread(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.compact_thread)
+- [`rollback_thread(...)`](api/client.md#codex_app_server_sdk.client.CodexClient.rollback_thread)
 
-[`ThreadHandle`](api/client.md#codex_app_server_client.client.ThreadHandle) wraps these operations for one thread id.
+[`ThreadHandle`](api/client.md#codex_app_server_sdk.client.ThreadHandle) wraps these operations for one thread id.
 
 ## Setting model/cwd/instructions
 
 Thread-level defaults belong on thread methods (`thread/start`, `thread/resume`, `thread/fork`).
-Per-turn changes belong in [`TurnOverrides`](api/models.md#codex_app_server_client.models.TurnOverrides).
+Per-turn changes belong in [`TurnOverrides`](api/models.md#codex_app_server_sdk.models.TurnOverrides).
 
 For persistent thread behavior:
 
