@@ -103,15 +103,27 @@ async with CodexClient.connect_stdio() as client:
 ### Stream mode (manual response)
 
 ```python
+import asyncio
+from contextlib import suppress
 from codex_app_server_sdk import CodexClient, CommandApprovalRequest
 
 
 async with CodexClient.connect_stdio() as client:
-    async for req in client.approval_requests():
-        if isinstance(req, CommandApprovalRequest):
-            await client.approve_approval(req, for_session=True)
-        else:
-            await client.decline_approval(req)
+    async def approval_loop():
+        async for req in client.approval_requests():
+            if isinstance(req, CommandApprovalRequest):
+                await client.approve_approval(req, for_session=True)
+            else:
+                await client.decline_approval(req)
+
+    approval_task = asyncio.create_task(approval_loop())
+    try:
+        result = await client.chat_once("Run a task that may need approvals.")
+        print(result.final_text)
+    finally:
+        approval_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await approval_task
 ```
 
 `approval_requests()` is observational. If a callback is configured, callback handling remains authoritative.
